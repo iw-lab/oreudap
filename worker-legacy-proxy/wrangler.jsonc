@@ -1,0 +1,6 @@
+{
+  // gmail 계정(d793b56b…) 옛 주소 유지용 중계 — 배포: ~/Documents/dev/gun/tools/cf.sh deploy (이 폴더에서)
+  "name": "oreudap-rank",
+  "main": "src/index.js",
+  "compatibility_date": "2026-04-22"
+}
