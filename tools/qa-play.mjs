@@ -291,7 +291,7 @@ async function main() {
   // blob:<origin>/… 와 data: 는 «네트워크로 나가는 요청»이 아니다(브라우저 내부 객체).
   // 그걸 외부로 세면 게이트가 진짜 외부 전송을 가리는 잡음이 된다.
   const isLocal = (u) => u.startsWith(origin) || u.startsWith(`blob:${origin}`) || u.startsWith('data:');
-  const RANK_HOST = 'https://oreudap-rank.simssijjang-d79.workers.dev';
+  const RANK_HOST = 'https://oreudap-rank.simssijjang-a04.workers.dev';
   const isRank = (u) => u.startsWith(`${RANK_HOST}/api/rank`);
   const blobs = requests.filter((r) => r.url.startsWith('blob:'));
   const rank = requests.filter((r) => isRank(r.url));

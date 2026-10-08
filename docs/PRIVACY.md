@@ -43,7 +43,7 @@
 무엇이 안 바뀌었는지**를 분명히 적어 둔다.
 
 ### 바뀐 것
-- 바깥으로 나가는 요청이 **하나** 생겼다: `https://oreudap-rank.simssijjang-d79.workers.dev/api/rank`
+- 바깥으로 나가는 요청이 **하나** 생겼다: `https://oreudap-rank.simssijjang-a04.workers.dev/api/rank`
 - 아이가 이름을 지을 수 있는 **입력 칸 하나**가 생겼다(`#nick`, 최대 8자)
 
 ### 안 바뀐 것 — 그리고 오히려 강해진 것

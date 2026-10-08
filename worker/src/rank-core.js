@@ -54,7 +54,8 @@ export function acceptName(n, isGenerated) {
 /** 들어온 줄 하나를 «저장해도 되는 모양»으로. 못 쓰면 null. */
 export function clean(r, isGenerated) {
   const n = acceptName(r && r.n, isGenerated);
-  const s = Math.round(Number(r && r.s) || 0);
+  const raw = r && r.s;   // 객체는 Number() 에서 던질 수 있다 → 숫자·문자열만(2026-10-08 교차검증 codex)
+  const s = typeof raw === 'number' || typeof raw === 'string' ? Math.round(Number(raw) || 0) : 0;
   if (!n || !(s > 0) || s > MAX_FLOOR) return null;
   const sub = normSub(r && r.sub, r && r.m);
   return { n, s, sub };

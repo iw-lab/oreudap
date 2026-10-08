@@ -2,10 +2,10 @@
   "name": "oreudap-rank",
   "main": "src/index.js",
   "compatibility_date": "2026-04-22",
-  // 🔴 Durable Object 가 아니라 KV 다 — 이 계정의 DO 무료 한도는 다른 프로젝트(리로드 아레나)가
-  //    이미 쓰고 있고, D1 은 데이터베이스 개수 상한에 걸렸다(2026-09-04 실측).
-  //    줄 하나에 키 하나다 — «제출 1회 = 쓰기 1회»(무료 한도 하루 1000회).
-  //    (판 전체를 키 하나에 담던 옛 구조는 읽고-고치고-쓰기 때문에 기록이 사라져서 버렸다. board.js 첫 주석 참조.)
-  "kv_namespaces": [{ "binding": "RANK", "id": "ce59a7c2c03b486299408a0a67a13d5c" }],
+  // 🔴 daum 계정(a043bf13…) — 배포는 반드시 ../tools/cf.sh deploy (전역 wrangler 로그인은 다른 계정일 수 있다).
+  // 2026-10-08 KV → D1: gmail 계정 KV 목록 조회가 하루 상한 1,000회를 넘어 429(10/7 1,303회).
+  //   gmail 계정은 D1 이 10개로 꽉 차 daum 으로 옮겼다. 옛 gmail 워커·KV 는 이전 확인 뒤 정리.
+  //   스키마 = migrations/ (../tools/cf.sh d1 migrations apply oreudap-rank --remote)
+  "d1_databases": [{ "binding": "DB", "database_name": "oreudap-rank", "database_id": "72308da2-8f90-4357-8c6f-6b60ee7cd50f", "migrations_dir": "migrations" }],
   "observability": { "enabled": true }
 }

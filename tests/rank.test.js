@@ -2,6 +2,7 @@
 import { describe, it, expect } from 'vitest';
 import { acceptName, clean, merge, dedupe, rankOf, rollover, MAX_FLOOR, KEEP, normSub, rowKey, dayFor, isTestRow, rankIn } from '../worker/src/rank-core.js';
 import { submitScore, topRows } from '../worker/src/board.js';
+import { d1 } from './d1stub.js';
 import { isGeneratedNick, makeNick, maskNick, isUsableNick } from '../src/core/nickname.js';
 
 const G = isGeneratedNick;
@@ -116,33 +117,9 @@ describe('모드별 표 분리', () => {
 
 // ── 동시 제출에서 줄이 사라지지 않는다 (2026-09-05 실측 결함의 재발 방지) ──
 describe('동시 제출', () => {
-  /**
-   * KV 를 흉내 내되 «최종적 일관성»까지 흉내 낸다.
-   * 🔴 get 이 항상 최신값을 주면 옛 구조(판 전체를 한 키에)도 통과해 버린다 —
-   *    그러면 이 테스트는 우리가 고친 바로 그 결함을 못 잡는다. 그래서 읽기를 «한 박자 늦춘다».
-   */
-  function staleKV() {
-    const live = new Map();     // 실제 저장
-    const seen = new Map();     // 읽기가 보는 (한 박자 늦은) 값
-    return {
-      live,
-      async get(key) {
-        const v = seen.get(key);
-        seen.set(key, live.get(key));      // 다음 읽기부터 최신이 보인다
-        return v === undefined ? null : JSON.parse(v);
-      },
-      async put(key, value, opts) {
-        live.set(key, value);
-        this.meta.set(key, (opts && opts.metadata) || null);
-      },
-      meta: new Map(),
-      async list({ prefix }) {
-        const keys = [...live.keys()].filter((k) => k.startsWith(prefix))
-          .map((name) => ({ name, metadata: this.meta.get(name) }));
-        return { keys, list_complete: true };
-      },
-    };
-  }
+  // 2026-10-08 KV → D1. 예전 «늦은 읽기» KV 흉내 대신 진짜 SQLite 위에서 잰다.
+  const staleKV = d1;
+  const count = (db) => db.raw.prepare('SELECT COUNT(*) AS c FROM rows').get().c;
 
   it('같은 순간에 들어온 서로 다른 제출이 서로를 덮어쓰지 않는다', async () => {
     const kv = staleKV();
@@ -166,6 +143,13 @@ describe('동시 제출', () => {
     expect(b.rows[0].s).toBe(30);
   });
 
+  it('같은 이름·같은 층을 두 번 내도 오류 없이 한 줄이다(INSERT OR IGNORE)', async () => {
+    const kv = staleKV();
+    expect((await submitScore(kv, { n: '김*수', s: 30, sub: 'gugudan', m: 'classic' })).ok).toBe(true);
+    expect((await submitScore(kv, { n: '김*수', s: 30, sub: 'gugudan', m: 'classic' })).ok).toBe(true);
+    expect(count(kv)).toBe(1);
+  });
+
   it('모드가 다르면 같은 사람도 다른 줄이다', async () => {
     const kv = staleKV();
     await submitScore(kv, { n: '김*수', s: 40, sub: 'words56', m: 'classic' });
@@ -179,7 +163,6 @@ describe('동시 제출', () => {
     // 🔴 KV list 는 방금 쓴 키를 30~60초쯤 뒤에야 보여 준다. 그대로 매기면 «내가 빠진 판»에서
     //    내 등수를 계산해 방금 1등을 했는데도 이상한 숫자가 나온다.
     const kv = staleKV();
-    kv.list = async () => ({ keys: [], list_complete: true });   // 목록이 아직 텅 빈 상태
     const r = await submitScore(kv, { n: '김*수', s: 40, sub: 'gugudan', m: 'classic' });
     expect(r.ok).toBe(true);
     expect(r.rank).toBe(1);
@@ -190,10 +173,10 @@ describe('동시 제출', () => {
     const kv = staleKV();
     const r = await submitScore(kv, { n: '김철수', s: 50, sub: 'gugudan', m: 'classic' });
     expect(r.ok).toBe(false);
-    expect(kv.live.size).toBe(0);
+    expect(count(kv)).toBe(0);
   });
 
-  it('줄 키에 날짜·과목·모드·이름·점수가 다 들어간다', () => {
+  it('줄 키에 날짜·과목·모드·이름·점수가 다 들어간다(옛 KV 키 — 이전 스크립트가 읽는다)', () => {
     // 점수까지 키에 있어야 «다른 기록 = 다른 키» 가 되어 덮어쓰기가 원천적으로 없다.
     expect(rowKey('2026-09-05', 'words56:sprint', '김*수', 12)).toBe('r:2026-09-05:words56:sprint:김*수:0012');
   });
@@ -210,17 +193,7 @@ describe('동시 제출', () => {
 });
 
 describe('게이트 봇의 기록이 아이들 판에 섞이지 않는다', () => {
-  /** 위 staleKV 와 같은 흉내. 이 describe 안에서만 쓴다. */
-  function kvStub() {
-    const live = new Map(); const meta = new Map();
-    return {
-      async get(k) { const v = live.get(k); return v === undefined ? null : JSON.parse(v); },
-      async put(k, v, o) { live.set(k, v); meta.set(k, (o && o.metadata) || null); },
-      async list({ prefix }) {
-        return { keys: [...live.keys()].filter((k) => k.startsWith(prefix)).map((name) => ({ name, metadata: meta.get(name) })), list_complete: true };
-      },
-    };
-  }
+  const kvStub = d1;
 
   it('t 표시를 읽는다', () => {
     expect(isTestRow({ t: 1 })).toBe(true);
@@ -263,16 +236,7 @@ describe('게이트 봇의 기록이 아이들 판에 섞이지 않는다', () =
 });
 
 describe('등수는 «내 표» 안에서 매긴다 [2026-09-05 교차검증 발견]', () => {
-  function kvStub() {
-    const live = new Map(); const meta = new Map();
-    return {
-      async get(k) { const v = live.get(k); return v === undefined ? null : JSON.parse(v); },
-      async put(k, v, o) { live.set(k, v); meta.set(k, (o && o.metadata) || null); },
-      async list({ prefix }) {
-        return { keys: [...live.keys()].filter((k) => k.startsWith(prefix)).map((name) => ({ name, metadata: meta.get(name) })), list_complete: true };
-      },
-    };
-  }
+  const kvStub = d1;
 
   it('🔴 영단어를 처음 하는 아이는 구구단 점수 때문에 2등이 되지 않는다', async () => {
     const kv = kvStub();
@@ -297,6 +261,20 @@ describe('등수는 «내 표» 안에서 매긴다 [2026-09-05 교차검증 발
     expect(r).toMatchObject({ rank: 1, total: 1 });
   });
 
+  it('🔴 다른 과목 기록이 판 상위 50줄을 채워도 내 표 등수·인원이 맞다 [2026-10-08 교차검증 codex·meta]', async () => {
+    const db = kvStub();
+    for (let i = 0; i < 50; i += 1) await submitScore(db, { n: `빠른여우${String(i).padStart(2, '0')}`, s: 450 + i, sub: 'words56', m: 'classic' });
+    await submitScore(db, { n: '졸린오리58', s: 400, sub: 'gugudan', m: 'classic' });
+    await submitScore(db, { n: '명랑한여우54', s: 300, sub: 'gugudan', m: 'classic' });
+    const r = await submitScore(db, { n: '명랑한여우54', s: 200, sub: 'gugudan', m: 'classic' });
+    expect(r).toMatchObject({ ok: true, rank: 2, total: 2 });
+  });
+
+  it('점수에 객체가 오면 서버 오류가 아니라 «거부»다', async () => {
+    const db = kvStub();
+    expect(await submitScore(db, { n: '졸린오리58', s: { toString: null }, sub: 'gugudan', m: 'classic' })).toEqual({ ok: false, reason: 'rejected' });
+  });
+
   it('rankIn 은 순수 함수로도 같은 판정을 한다', () => {
     const rows = [
       { n: '가', s: 100, sub: 'gugudan:classic' },
@@ -307,38 +285,35 @@ describe('등수는 «내 표» 안에서 매긴다 [2026-09-05 교차검증 발
   });
 });
 
-describe('판이 아주 클 때 [2026-09-05 교차검증 발견]', () => {
-  /**
-   * 페이지가 넘치는 KV. 🔴 **1등을 일부러 맨 뒤에 둔다** — 키 정렬은 이름순이라
-   * 상한에 걸려 버려지는 줄이 하필 최고 기록일 수 있다는 게 이 결함의 핵심이다.
-   */
-  function pagedKV(total, topAtEnd = true) {
-    const entries = Array.from({ length: total }, (_, i) => {
-      const last = i === total - 1;
-      const s = last && topAtEnd ? 400 : 10;
-      const n = `빠른여우${String(i).padStart(5, '0')}`;
-      return { name: `r:x:gugudan:classic:${n}:${String(s).padStart(4, '0')}`, metadata: { n, s, sub: 'gugudan:classic' } };
-    });
-    return {
-      async put() {},
-      async list({ cursor, limit }) {
-        const start = Number(cursor || 0);
-        const end = Math.min(start + limit, entries.length);
-        return { keys: entries.slice(start, end), list_complete: end === entries.length, cursor: String(end) };
-      },
-    };
-  }
-
-  it('🔴 5페이지 너머에 있는 1등을 놓치지 않는다 (옛 상한 5,000줄)', async () => {
-    // 8,000줄 중 마지막 줄이 400층. 옛 코드는 5,000줄에서 멈춰 이 줄을 못 봤다.
-    const r = await submitScore(pagedKV(8000), { n: '졸린오리58', s: 30, sub: 'gugudan', m: 'classic' });
+describe('판이 아주 클 때 [2026-09-05 교차검증 발견 · 2026-10-08 D1]', () => {
+  // KV 시절엔 목록이 1,000줄씩 끊겨 «5페이지 너머의 1등»을 놓쳤다. D1 은 한 번에 다 읽는다 — 그래도 잰다.
+  it('🔴 8,000줄 판에서 맨 뒤 이름의 1등을 놓치지 않는다', async () => {
+    const db = d1();
+    const day = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
+    const ins = db.raw.prepare('INSERT INTO rows (day, sub, n, s, at) VALUES (?, ?, ?, ?, 0)');
+    for (let i = 0; i < 8000; i += 1) ins.run(day, 'gugudan:classic', `빠른여우${String(i).padStart(5, '0')}`, i === 7999 ? 400 : 10);
+    const r = await submitScore(db, { n: '졸린오리58', s: 30, sub: 'gugudan', m: 'classic' });
     expect(r.ok).toBe(true);
-    expect(r.partial).toBeUndefined();   // 끝까지 읽었다
-    expect(r.rank).toBe(2);              // 400층 뒤 2등 — 못 봤으면 1등이라고 거짓말했다
+    expect(r.partial).toBeUndefined();
+    expect(r.rank).toBe(2);
   });
 
-  it('그래도 넘치면 «부분»이라고 정직하게 말한다', async () => {
-    const r = await submitScore(pagedKV(25000), { n: '졸린오리58', s: 30, sub: 'gugudan', m: 'classic' });
-    expect(r.partial).toBe(true);        // 모르는 것을 아는 척하지 않는다
+  it('사흘 지난 줄은 제출 때 치운다(KV TTL 대신) · 오늘·어제 줄과 봇 칸 오늘 줄은 남는다', async () => {
+    const db = d1();
+    const k = (ms) => new Date(ms + 9 * 3600e3).toISOString().slice(0, 10);
+    const now = Date.now(), old = k(now - 5 * 864e5), yday = k(now - 864e5);
+    const ins = db.raw.prepare('INSERT INTO rows (day, sub, n, s, at) VALUES (?, ?, ?, ?, 0)');
+    ins.run(k(now - 3 * 864e5), 'gugudan:classic', '빠른여우05', 5);
+    ins.run(old, 'gugudan:classic', '빠른여우01', 5); ins.run(`t-${old}`, 'gugudan:classic', '빠른여우02', 5);
+    ins.run(yday, 'gugudan:classic', '빠른여우03', 9); ins.run(`t-${k(now)}`, 'gugudan:classic', '빠른여우04', 9);
+    await submitScore(db, { n: '졸린오리58', s: 30, sub: 'gugudan', m: 'classic' });
+    const days = db.raw.prepare('SELECT day FROM rows ORDER BY day').all().map((x) => x.day);
+    expect(days).not.toContain(old);
+    expect(days).not.toContain(`t-${old}`);
+    const d3 = k(now - 3 * 864e5);   // 오늘 포함 3일(오늘·어제·그제)만 남는다 — 사흘 전은 지운다
+    expect(days).not.toContain(d3);
+    expect(days).toEqual(expect.arrayContaining([yday, k(now), `t-${k(now)}`]));
+    const b = await topRows(db, 50);
+    expect(b.yday.rows.map((r) => r.n)).toEqual(['빠른여우03']);
   });
 });

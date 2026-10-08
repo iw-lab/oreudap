@@ -30,16 +30,21 @@ export default {
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors(origin) });
     if (url.pathname !== '/api/rank') return json({ error: 'not found' }, origin, 404);
 
+    try { return await route(request, env, url, origin); }
+    catch (e) { console.error('rank', e && e.message); return json({ error: 'db' }, origin, 503); }   // D1 장애 — 판이 «비어 보이는» 대신 오류로
+  },
+};
+
+async function route(request, env, url, origin) {
     if (request.method === 'GET') {
       const n = Math.min(50, Math.max(1, Number(url.searchParams.get('n')) || 10));
-      return json(await topRows(env.RANK, n), origin);
+      return json(await topRows(env.DB, n), origin);
     }
     if (request.method === 'POST') {
       let body = null;
       try { body = await request.json(); } catch { return json({ error: 'bad json' }, origin, 400); }
-      const res = await submitScore(env.RANK, body);
+      const res = await submitScore(env.DB, body);
       return json(res, origin, res.ok ? 200 : 400);
     }
     return json({ error: 'method' }, origin, 405);
-  },
-};
+}

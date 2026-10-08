@@ -1,4 +1,5 @@
 #!/bin/bash
+# ⚠️ 2026-10-08 등수 저장이 KV → D1(daum 계정)으로 옮겨 이 스크립트의 ②(KV 청소)는 더 이상 쓰이지 않는다. 남은 건 옛 기록용.
 # 오르답 — 클라우드플레어 계정(gmail)이 있어야만 되는 두 가지.
 #   ① 등수 워커 배포(봇 기록을 아이들 판에서 빼는 수정)
 #   ② 오늘 판에 이미 쌓인 봇 기록 청소
@@ -41,6 +42,6 @@ read -p "위대로 지웁니다. 계속하려면 엔터 (남길 이름이 있으
 npx wrangler kv bulk delete --namespace-id $NS --remote --force /tmp/oreudap-del.json
 
 echo "── 확인"
-curl -s "https://oreudap-rank.simssijjang-d79.workers.dev/api/rank?n=50"
+curl -s "https://oreudap-rank.simssijjang-a04.workers.dev/api/rank?n=50"
 echo
 echo "✅ 끝. 봇 줄이 사라졌는지 위 rows 로 확인하세요."

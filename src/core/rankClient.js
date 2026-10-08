@@ -10,7 +10,7 @@
 
 import { makeNick, isUsableNick, coerceNick, maskNick } from './nickname.js';
 
-export const RANK_API = 'https://oreudap-rank.simssijjang-d79.workers.dev/api/rank';
+export const RANK_API = 'https://oreudap-rank.simssijjang-a04.workers.dev/api/rank';
 const NICK_KEY = 'oreudap:nick';
 const SENT_KEY = 'oreudap:sent';   // 오늘 이미 올린 최고 기록 — 같은 점수를 반복해 올리지 않는다
 

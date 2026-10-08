@@ -20,7 +20,7 @@ page.on('request', (r) => {
   const u = r.url();
   // 🔴 바깥으로 나가도 되는 곳은 «등수 API» 하나뿐이다(D21). 나머지는 전부 외부로 센다.
   //    실명이 실리지 않는지는 D29 가 따로 잰다(tools/qa-play.mjs).
-  const RANK = 'https://oreudap-rank.simssijjang-d79.workers.dev/api/rank';
+  const RANK = 'https://oreudap-rank.simssijjang-a04.workers.dev/api/rank';
   const allowed = u.startsWith(origin) || u.startsWith(`blob:${origin}`) || u.startsWith('data:') || u.startsWith(RANK);
   if (!allowed) external.push(`${r.method()} ${u}`);
 });
@@ -97,7 +97,7 @@ if (!settle || !settle.nick || !settle.settled || !(settle.floor > 0)) {
   const { nick, floor } = settle;
   // 🔴 KV 목록 조회는 방금 쓴 줄을 30~60초쯤 뒤에야 보여 준다. 곧바로 «없다»를 결론으로 삼으면
   //    워커가 옛 버전이어도 통과해 버린다. 보일 때까지 기다렸다가 판정한다.
-  const API = 'https://oreudap-rank.simssijjang-d79.workers.dev/api/rank?n=50';
+  const API = 'https://oreudap-rank.simssijjang-a04.workers.dev/api/rank?n=50';
   let found = null; let total = 0;
   for (let i = 0; i < 15; i += 1) {                 // 최대 약 90초
     try {
