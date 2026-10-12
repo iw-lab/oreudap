@@ -10,6 +10,7 @@ import { SHOP, HEART, SRS, TIMING, MODES, DEFAULT_MODE, STAMINA, TIER_FLOORS, CH
 import { computeLayout, columns } from './ui/layout.js';
 import { Sound } from './ui/sound.js';
 import { Say } from './ui/say.js';
+import { createJuice } from './ui/juice.js';
 import { SAY_WORDS } from './data/say-index.js';
 import { makeRng } from './core/rng.js';
 import { poolOf } from './core/questions.js';
@@ -40,6 +41,18 @@ function fitFontPx(longest, colW, choices) {
   const px = Math.floor(usable / (perLine * em));
   return Math.max(CHOICE_FIT.MIN_PX, Math.min(CHOICE_FIT.MAX_PX, px));
 }
+
+// 반응(주스) — 맞히기·연속·층 돌파·틀리기 하나하나에 «과하게» 반응한다(game-builder tools/check-juice.mjs).
+// 🔴 slowmo·hitstop·combo·kick 은 일부러 안 썼다: 이 게임은 advance(dtMs) 가 기력·시간제한·판정
+//    타이머를 «그 dt 그대로» 흘린다(core/game.js) — 렌더와 분리된 dt 가 없어 J.time() 을 걸면
+//    정답 직후 연출 한 번마다 기력 드레인·판 제한시간이 늦게 간다(오늘의 계단·등수에 들어가는 자원).
+//    combo 는 게임이 이미 streak 로 센다 — J 의 내부 콤보와 두 집계가 겹치면 배너가 두 번 뜬다.
+export const JUICE = {
+  correct: ['sfx', 'pop', 'punch'],                       // 발판 밟기 — 작게, 매번
+  wrong: ['sfx', 'flash', 'punch', 'haptic'],              // 오답·시간초과
+  streak: ['sfx', 'burst', 'banner', 'punch', 'haptic'],   // 연속 정답(하트 회복)
+  milestone: ['sfx', 'banner', 'flash', 'punch', 'haptic'], // 10층마다 금 발판
+};
 
 const SUBJECT_META = {
   gugudan: { emoji: '✖️', desc: '2단부터 9단까지, 한눈에 즉답' },
@@ -79,6 +92,15 @@ export class App {
     // 영어 낱말은 귀로도 만난다 — 파일 943개, 없는 낱말은 브라우저 음성.
     this.voice = new Say(() => this.data.settings.sound, SAY_WORDS);
     this.autoBot = null;      // 스모크·플레이테스트 전용
+    // 반응(주스) — 소리는 기존 Sound 로(이중 재생 방지), 진동은 소리 설정을 그대로 따른다.
+    this.J = createJuice({
+      table: JUICE,
+      host: document.body,
+      haptics: () => this.data.settings.sound !== false,
+      sfx: (name, o) => this.sound.play(name, 0.65 * ((o && o.vol) || 1)),
+      burst: () => { if (this.scene) this.scene.celebrate(); },
+      punch: { correct: '#hud-floor', wrong: '#hud-hearts', streak: '#streak-chip', milestone: '#hud-floor' },
+    });
   }
 
   init() {
@@ -544,25 +566,25 @@ export class App {
     const q = this.core.question;
     const fb = $('#feedback');
     if (res.type === 'correct') {
-      this.sound.play('correct');
+      const floorPos = $('#hud-floor').getBoundingClientRect();
+      this.J.fire('correct', { x: floorPos.left + floorPos.width / 2, y: floorPos.top + floorPos.height / 2, text: '+1', color: '#7ff8ee' });
       if (q.word && q.dir === 'k2w') this.voice.speak(q.word, q.lang);
       // 계단이 오를수록 음악이 조여든다 — 층 경계는 코어(balance)가 정하고 UI 는 받아 쓴다.
       this.sound.setIntensity(res.floor, tierIndexFor(res.floor), tierStartFor(res.floor));
       if (this.scene) this.scene.jumpTo(q.answerIndex, res.floor);
       this.markChoice(q.answerIndex, 'is-correct');
       if (res.bonus) {
-        this.sound.play('streak');
-        if (this.scene) this.scene.celebrate();
+        this.J.fire('streak', { title: `🔥 ${this.core.streak}연속!`, color: '#ffe066' });
         this.flashStreak(this.core.streak, res.healed);
       }
       // 10층마다 «금 발판» — 아래로 흘러가는 계단이 그대로 고도계가 된다.
       if (res.floor % 10 === 0) {
-        this.sound.play('coin');
+        this.J.fire('milestone', { sfx: 'coin', title: `🏁 ${res.floor}층 돌파!`, color: '#ffcf6a' });
         this.say(fb, `🏁 ${res.floor}층 돌파!`, 'good');
       } else if (res.boxState === 'graduated') this.say(fb, '🎓 이제 완전히 내 거!', 'good');
       else if (res.graduated === 'graduated') this.say(fb, '👍 오늘은 이 문제 통과!', 'good');
     } else {
-      this.sound.play(res.type === 'timeout' ? 'timeout' : 'wrong');
+      this.J.fire('wrong', { sfx: res.type === 'timeout' ? 'timeout' : 'wrong', color: '#ff6b6b' });
       if (this.scene) this.scene.stumble(res.chose, q.answerIndex);
       if (res.chose != null) this.markChoice(res.chose, 'is-wrong');
       this.markChoice(q.answerIndex, 'is-correct');
