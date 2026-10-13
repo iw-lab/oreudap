@@ -132,6 +132,54 @@
       "license": "self-generated",
       "source": "game-builder gen-sfx.py 오프라인 결정론 렌더(numpy) → loudnorm·ogg/m4a 변환.",
       "date": "2026-09-04"
+    },
+    {
+      "file": "land.ogg",
+      "license": "self-generated",
+      "source": "game-builder gen-sfx.py 오프라인 결정론 렌더(레시피 land·heal_sparkle·win·point) → -16 LUFS. 외부 서비스·크레딧 사용 0.",
+      "date": "2026-10-13"
+    },
+    {
+      "file": "land.m4a",
+      "license": "self-generated",
+      "source": "game-builder gen-sfx.py 오프라인 결정론 렌더(레시피 land·heal_sparkle·win·point) → -16 LUFS. 외부 서비스·크레딧 사용 0.",
+      "date": "2026-10-13"
+    },
+    {
+      "file": "heart.ogg",
+      "license": "self-generated",
+      "source": "game-builder gen-sfx.py 오프라인 결정론 렌더(레시피 land·heal_sparkle·win·point) → -16 LUFS. 외부 서비스·크레딧 사용 0.",
+      "date": "2026-10-13"
+    },
+    {
+      "file": "heart.m4a",
+      "license": "self-generated",
+      "source": "game-builder gen-sfx.py 오프라인 결정론 렌더(레시피 land·heal_sparkle·win·point) → -16 LUFS. 외부 서비스·크레딧 사용 0.",
+      "date": "2026-10-13"
+    },
+    {
+      "file": "record.ogg",
+      "license": "self-generated",
+      "source": "game-builder gen-sfx.py 오프라인 결정론 렌더(레시피 land·heal_sparkle·win·point) → -16 LUFS. 외부 서비스·크레딧 사용 0.",
+      "date": "2026-10-13"
+    },
+    {
+      "file": "record.m4a",
+      "license": "self-generated",
+      "source": "game-builder gen-sfx.py 오프라인 결정론 렌더(레시피 land·heal_sparkle·win·point) → -16 LUFS. 외부 서비스·크레딧 사용 0.",
+      "date": "2026-10-13"
+    },
+    {
+      "file": "school.ogg",
+      "license": "self-generated",
+      "source": "game-builder gen-sfx.py 오프라인 결정론 렌더(레시피 land·heal_sparkle·win·point) → -16 LUFS. 외부 서비스·크레딧 사용 0.",
+      "date": "2026-10-13"
+    },
+    {
+      "file": "school.m4a",
+      "license": "self-generated",
+      "source": "game-builder gen-sfx.py 오프라인 결정론 렌더(레시피 land·heal_sparkle·win·point) → -16 LUFS. 외부 서비스·크레딧 사용 0.",
+      "date": "2026-10-13"
     }
   ]
 }

@@ -14,3 +14,8 @@ qa/live.png
 # 썸네일 중간 산출물(PNG)은 추적하지 않는다 — 최종본은 webp 하나면 된다
 qa/thumb-oreudap.png
 qa/oreudap-1200.png
+
+.cf-home/
+
+# 학교 허브 비밀(키트)
+.secrets/

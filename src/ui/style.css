@@ -465,6 +465,121 @@ body.color-safe .choice.is-wrong .mark { display: inline; }
 .goal-text { font-size: 16px; color: var(--ink); }
 .miss-items { display: flex; flex-direction: column; gap: 2px; }
 
+/* ── v2 첫 화면(game-builder 기본틀 셸) · 적응형 (2026-10-13) ─────────────────
+   키트 토큰(--gb-*)을 오르답 색으로 덮는다 — 키트 화면(학교 찾기·순위)과 게임 화면이 한 톤이 된다.
+   🔴 폭 3단: 폰(<600) 1단·모드 2열 / 태블릿(600~1023) 1단·모드 3열 / PC(≥1024) 2단(왼쪽 행동·오른쪽 진행). */
+/* 🔴 html:root — 키트 gb-ui.css 는 JS 가 나중에 넣는다(같은 :root 면 키트 색이 이긴다) */
+html:root {
+  --gb-bg: #101a2c; --gb-panel: rgba(22, 35, 60, 0.86); --gb-panel-2: rgba(255, 255, 255, 0.08);
+  --gb-line: rgba(255, 255, 255, 0.14); --gb-text: #f4f7ff; --gb-dim: #b9c6e4;
+  --gb-accent: #ffd24a; --gb-accent-ink: #2a1e00; --gb-gold: #ffd24a; --gb-danger: #ff6b7a;
+  --gb-radius: 18px;
+  --gb-font: 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR', system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+.ic { width: 1.15em; height: 1.15em; flex: none; vertical-align: -0.2em; }
+[hidden] { display: none !important; }
+
+.screen.home { align-items: stretch; padding-top: max(12px, env(safe-area-inset-top)); }
+.home .home-wrap.gb-home { max-width: 520px; width: 100%; margin: 0 auto; gap: 14px; padding-bottom: 8px; }
+.home .gb-brand.logo { font-size: 24px; margin: 0; text-shadow: none; display: flex; align-items: center; gap: 8px; }
+.home .logo-mark { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 11px; background: var(--accent); color: var(--accent-ink); margin: 0; font-size: 20px; }
+.home .logo-mark .ic { width: 22px; height: 22px; }
+.home .gb-tools { align-items: center; }
+.home .coin-chip { margin: 0; padding: 6px 12px; font-size: 16px; min-height: 44px; }
+.home .gb-icon .ic, .home .gb-icon svg { width: 22px; height: 22px; }
+.coin-ico { display: inline-grid; place-items: center; color: var(--accent); }
+.coin-ico .ic { width: 20px; height: 20px; }
+
+.home-grid { display: grid; gap: 14px; }
+.home-main, .home-side { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.home-side .panel { margin: 0; }
+
+.pick { background: var(--gb-panel); border: 1px solid var(--gb-line); border-radius: var(--gb-radius); padding: 12px 12px 10px; }
+.pick-h { font-size: 15px; margin: 0 0 8px 2px; color: var(--ink-dim); font-weight: 700; }
+.subject-chips { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 8px; }
+.subject-chip {
+  display: flex; align-items: center; justify-content: center; gap: 7px; min-height: 48px; padding: 6px 10px;
+  border-radius: 14px; border: 1px solid var(--gb-line); background: var(--panel-solid); color: var(--ink);
+  font: 700 15px var(--gb-font); cursor: pointer; white-space: nowrap;
+}
+.subject-chip .chip-ic { width: 22px; height: 22px; color: var(--ink-dim); }
+.subject-chip[aria-checked="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.subject-chip[aria-checked="true"] .chip-ic { color: var(--accent-ink); }
+.subject-chip:active { transform: scale(0.97); }
+.dan-row { display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 6px; margin-top: 10px; }
+.dan-chip {
+  min-height: 44px; border-radius: 12px; border: 1px solid var(--gb-line); background: transparent; color: var(--ink);
+  font: 700 14px var(--gb-font); cursor: pointer; padding: 0 2px; white-space: nowrap;
+}
+.dan-chip[aria-pressed="true"] { background: rgba(255, 210, 74, 0.18); border-color: var(--accent); color: var(--accent); }
+
+.home .gb-play { display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 60px; font-size: 19px; }
+.home .gb-play .play-ic { width: 24px; height: 24px; }
+.home .gb-mode.is-current { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.home .gb-mode-emoji { color: var(--accent); }
+.home .gb-sub > button { font-size: 14px; }
+
+.home .journey, .home .daily-card { padding: 12px 14px; }
+.home .board-head h2 { font-size: 17px; margin: 0; }
+.board-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.board-day { font-size: 13px; color: var(--ink-dim); }
+.home .zone { min-height: 52px; }
+.zone-icon { display: grid; place-items: center; color: var(--accent); }
+.zone-icon .ic { width: 24px; height: 24px; }
+.zone.locked .zone-icon { color: var(--ink-dim); }
+.zone-state.is-done { color: var(--good); font-weight: 700; }
+.goal-icon { display: grid; place-items: center; color: var(--accent); }
+.goal-icon .ic { width: 20px; height: 20px; }
+.home .footer-note { margin: 6px auto 0; font-size: 12.5px; }
+
+/* 결과 — 학교 점수 */
+.result-school { display: inline-flex; align-items: center; gap: 8px; margin-top: 10px; padding: 8px 14px; border-radius: 999px;
+  background: rgba(143, 227, 192, 0.14); color: #8fe3c0; font-size: 16px; font-weight: 700; }
+.result-school b { color: #fff; }
+
+/* 플레이 HUD 아이콘 */
+.icon-btn { display: grid; place-items: center; }
+.icon-btn .ic, .icon-btn svg { width: 22px; height: 22px; }
+.back-btn { display: grid; place-items: center; }
+.back-btn .ic { width: 22px; height: 22px; }
+.heart { display: inline-grid; place-items: center; color: #ff6b7a; }
+.heart .ic { width: 24px; height: 24px; }
+.streak-chip { display: inline-flex; align-items: center; gap: 6px; }
+.streak-chip .ic { color: #ffb347; }
+
+@media (max-width: 599px) {
+  .subject-chips { grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .subject-chip { font-size: 14px; gap: 5px; padding: 6px 4px; }
+  .subject-chip .chip-ic { width: 18px; height: 18px; }
+  .dan-chip { font-size: 13px; }
+  .home .gb-mode-desc { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+}
+@media (min-width: 600px) {
+  .home .home-wrap.gb-home { max-width: 720px; }
+  .home .gb-modes { grid-template-columns: repeat(3, 1fr); }
+  .subject-chips { grid-template-columns: repeat(5, 1fr); }
+}
+/* PC — 2단. 왼쪽(순위·과목·시작·모드), 오른쪽(여정·오늘의 계단). 빈 화면 70% 를 쓰지 않던 v1 의 세로 띠를 없앤다(D53). */
+@media (min-width: 1024px) {
+  .home .home-wrap.gb-home { max-width: 1200px; padding: 8px 24px; }
+  .home-grid { grid-template-columns: minmax(0, 1.35fr) minmax(320px, 1fr); gap: 20px; align-items: start; }
+  .home .gb-modes { grid-template-columns: repeat(3, 1fr); }
+  .home .gb-brand.logo { font-size: 28px; }
+  .home-side { position: sticky; top: 8px; }
+  /* PC 는 손가락이 아니라 마우스지만 «멀리서 보는» 교실 화면이기도 하다 — 글자·카드를 한 단계 키운다 */
+  .subject-chip { min-height: 56px; font-size: 17px; }
+  .dan-chip { min-height: 48px; font-size: 16px; }
+  .home .gb-play { min-height: 68px; font-size: 21px; }
+  .home .gb-mode { min-height: 92px; padding: 12px 16px; }
+  .home .gb-mode-name { font-size: 17px; }
+  .home .gb-mode-desc { font-size: 13.5px; }
+  .home .gb-mode-emoji, .home .gb-mode-emoji svg { width: 30px; height: 30px; }
+  .gb-rank-list { font-size: 15px; }
+  .home .board-head h2 { font-size: 19px; }
+  .home .zone-name { font-size: 18px; }
+}
+@media (min-width: 1440px) { .home .home-wrap.gb-home { max-width: 1320px; } }
+
 /* ── 반응(주스) — kit/juice/juice.css 그대로(배너 자리만 HUD·발판 안 겹치게 조정) ── */
 /* @gb-juice-css v1 — kit/juice/juice.css. 게임 스타일시트 끝에 그대로 붙인다(CSP style-src 'self' 라 JS 가 <style> 을 넣지 않는다). */
 .gbj-layer{position:fixed;inset:0;pointer-events:none;z-index:40;overflow:hidden}

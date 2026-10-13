@@ -14,7 +14,13 @@ import { createJuice } from './ui/juice.js';
 import { SAY_WORDS } from './data/say-index.js';
 import { makeRng } from './core/rng.js';
 import { poolOf } from './core/questions.js';
-import { getNick, setNick, suggestNick, displayNick, fetchBoard, submitScore, todayKey } from './core/rankClient.js';
+import { icon, iconEl, SUBJECT_ICON, MODE_ICON } from './ui/icons.js';
+// game-builder 기본틀(키트 — 고치지 않는다): 학교 순위 · 판 관문(이용권 없음 = free-play) · 전체화면 · 모드 카드
+import './gb/gb-ui.css';
+import { configureHub } from './gb/hubnet.js';
+import { configureSchool, mountSchoolRank, refreshSchoolRank, gbGate, gbFinish, gbLeave, shortSchool } from './gb/gb-school.js';
+import { bindFullscreenButton } from './gb/gb-fullscreen.js';
+import { renderModeCards, setModeBest } from './gb/gb-modes.js';
 import { journeyOf, currentZone, nextZoneGap } from './core/journey.js';
 import { planForNow, starsFor, recordFlag, todayStars, flagSummary } from './core/daily.js';
 import { applyPerId, masteryList, weakest, stampToday, weekView } from './core/mastery.js';
@@ -52,22 +58,31 @@ export const JUICE = {
   wrong: ['sfx', 'flash', 'punch', 'haptic'],              // 오답·시간초과
   streak: ['sfx', 'burst', 'banner', 'punch', 'haptic'],   // 연속 정답(하트 회복)
   milestone: ['sfx', 'banner', 'flash', 'punch', 'haptic'], // 10층마다 금 발판
+  land: ['sfx', 'punch', 'haptic'],                        // 정답 발판에 «쿵» 착지(점프 220ms 뒤)
+  coin: ['sfx', 'pop', 'punch'],                           // 연속 보너스 코인 +5
+  heart: ['sfx', 'pop', 'punch', 'haptic'],                // 하트 회복
+  record: ['sfx', 'banner', 'burst', 'flash'],             // 판 도중 최고 기록을 넘는 순간(한 판에 한 번)
+  school: ['sfx', 'banner', 'pop', 'punch'],               // 결과 — 우리 학교 +N점
 };
 
 const SUBJECT_META = {
-  gugudan: { emoji: '✖️', desc: '2단부터 9단까지, 한눈에 즉답' },
-  words34: { emoji: '🅰️', desc: () => `3·4학년 기본 낱말 ${poolOf('words34').length}개` },
-  words56: { emoji: '📘', desc: () => `5·6학년 기본 낱말 ${poolOf('words56').length}개` },
-  korean34: { emoji: '📖', desc: () => `3·4학년 국어 낱말 ${poolOf('korean34').length}개` },
-  korean56: { emoji: '✒️', desc: () => `5·6학년 국어 낱말 ${poolOf('korean56').length}개` },
+  gugudan: { short: '구구단' },
+  words34: { short: '영단어 3·4' },
+  words56: { short: '영단어 5·6' },
+  korean34: { short: '국어 3·4' },
+  korean56: { short: '국어 5·6' },
 };
 
-/** 등수판 한 줄의 «과목:모드» 를 사람 말로 — 옛 형식(모드 없음)은 클래식으로 읽는다 */
-function subLabel(sub) {
-  const [subject, mode = 'classic'] = String(sub).split(':');
-  const s = (SUBJECTS[subject] && SUBJECTS[subject].label) || subject;
-  return mode === 'classic' ? s : `${s} · ${(MODES[mode] || {}).label || mode}`;
-}
+// 모드 카드 — 키트 kind 에 맞춘다(classic·time·survival + rule·daily). 카드를 누르면 그 모드로 «바로» 시작한다.
+const MODE_CARDS = [
+  { id: 'classic', kind: 'classic', desc: '하트 3개로 끝까지' },
+  { id: 'sprint', kind: 'time', desc: '1분 안에 몇 층?' },
+  { id: 'thrill', kind: 'survival', desc: '기력이 계속 줄어요' },
+  { id: 'mirror', kind: 'rule', desc: '56 → 7 × 8 찾기' },
+  { id: 'daily', kind: 'daily', desc: '오늘의 판 · 별 3개' },
+];
+/** 학교 점수 «끝까지 감» 기준 — 10층(첫 금 발판)을 넘었거나 오늘의 계단 별을 받았으면 */
+const CLEAR_FLOOR = 10;
 
 export class App {
   constructor({ scene, seedFn }) {
@@ -93,17 +108,25 @@ export class App {
     this.voice = new Say(() => this.data.settings.sound, SAY_WORDS);
     this.autoBot = null;      // 스모크·플레이테스트 전용
     // 반응(주스) — 소리는 기존 Sound 로(이중 재생 방지), 진동은 소리 설정을 그대로 따른다.
+    this.ticket = null;       // 이번 판 학교 점수 영수증(gbGate) — 허브가 없으면 null
+    this.starting = false;
     this.J = createJuice({
       table: JUICE,
       host: document.body,
       haptics: () => this.data.settings.sound !== false,
       sfx: (name, o) => this.sound.play(name, 0.65 * ((o && o.vol) || 1)),
       burst: () => { if (this.scene) this.scene.celebrate(); },
-      punch: { correct: '#hud-floor', wrong: '#hud-hearts', streak: '#streak-chip', milestone: '#hud-floor' },
+      punch: { correct: '#hud-floor', wrong: '#hud-hearts', streak: '#streak-chip', milestone: '#hud-floor', land: '#hud-floor', coin: '#streak-chip', heart: '#hud-hearts', school: '#result-school' },
     });
   }
 
   init() {
+    configureHub({ key: 'oreudap.hub.v1' });
+    configureSchool({ freePlay: true, playWord: '오르기', sfx: { tick: () => this.sound.play('button'), win: () => this.sound.play('streak') } });
+    mountSchoolRank($('#schoolRank'));
+    bindFullscreenButton($('#btnFull'));
+    bindFullscreenButton($('#btnFullPlay'));
+    this.paintIcons();
     this.bindStaticButtons();
     this.renderTitle();
     this.applyBodyFlags();
@@ -123,7 +146,7 @@ export class App {
     for (const s of document.querySelectorAll('.screen')) s.classList.remove('active');
     const target = $(`#screen-${name}`);
     if (target) target.classList.add('active');
-    if (name === 'title') this.renderTitle();
+    if (name === 'title') { this.renderTitle(); refreshSchoolRank(); }
     if (name === 'notes') this.renderNotes();
     if (name === 'collection') this.renderCollection();
     if (name === 'settings') this.renderSettings();
@@ -137,14 +160,17 @@ export class App {
     $('#btn-pause').addEventListener('click', () => this.pause());
     $('#btn-resume').addEventListener('click', () => this.resume());
     $('#btn-quit').addEventListener('click', () => { this.quitRun(); });
+    // 주 단추 — 고른 과목·고른 모드로 바로. 🔴 gbGate 는 클릭 «안에서 바로» 불러야 자동 전체화면이 된다.
+    $('#btn-play').addEventListener('click', () => this.play(() => this.startMode(this.mode)));
+    $('#btn-how-home').addEventListener('click', () => this.showHow(true));
     // 🔴 전체화면 요청은 «클릭 핸들러 안»에서만 한다. startRun 에 넣었더니 봇·스모크가 부르는
     //    경로에서도 요청이 나가 「user gesture 없이 호출」 콘솔 경고가 떴다(D18 이 잡았다).
     //    제스처가 있는 자리는 여기지 startRun 이 아니다.
     // 🔴 오늘의 계단을 하던 중이면 «같은 판»으로 다시 간다. 무작위로 돌려보내면
     //    아이는 방금 아쉬웠던 그 판을 다시 만날 수 없고, 별을 올릴 길도 사라진다.
     $('#btn-again').addEventListener('click', () => {
-      this.requestFullscreen();
-      if (this.daily) this.startDaily(this.subject); else this.startRun();
+      const daily = !!this.daily;
+      this.play(() => (daily ? this.startDaily(this.subject) : this.startRun()));
     });
     $('#btn-how-start').addEventListener('click', () => { this.sound.unlock(); this.hideHow(); });
     // 🔴 pause() 를 부르면 «잠깐 멈춤» 카드가 안내 위를 덮어 버튼을 못 누른다(D35 가 잡았다).
@@ -159,12 +185,47 @@ export class App {
       const q = this.core && this.core.question;
       if (q && q.word && (q.dir === 'w2k' || this.core.answered)) this.voice.speak(q.word, q.lang);
     });
-    $('#scope-start').addEventListener('click', () => { this.requestFullscreen(); this.startRun(); });
-    // 오늘의 계단 — 범위 선택을 건너뛴다(오늘의 규칙이 이미 범위를 정한다)
-    $('#btn-daily').addEventListener('click', () => {
-      this.requestFullscreen();
-      this.startDaily(this.subject);
-    });
+  }
+
+  /** 아이콘 칠하기(이모지 대신 SVG) — 정적 단추들 */
+  paintIcons() {
+    $('#logo-mark').innerHTML = icon('logo');
+    $('#coin-ico').innerHTML = icon('coin');
+    $('#btn-settings').innerHTML = icon('gear');
+    $('#btn-how').innerHTML = icon('help');
+    $('#btn-pause').innerHTML = icon('pause');
+    for (const b of document.querySelectorAll('.back-btn')) b.innerHTML = icon('back');
+    for (const c of document.querySelectorAll('.coin-ico')) c.innerHTML = icon('coin');
+  }
+
+  /**
+   * 판 시작 관문(키트 README §연결) — 학교 점수 영수증을 받고 시작한다. 이 게임은 이용권이 없다(free-play).
+   * 🔴 잠금은 «시작 준비»까지만 덮는다 — 두 번 누름이 판 두 개·영수증 두 장이 되지 않게.
+   */
+  play(start) {
+    if (this.starting) return;
+    this.starting = true;
+    let launched = false;
+    // 이전 판 영수증이 남아 있으면(결과 화면에서 «바로 다시») 이미 정산됐다 — 새 판은 새 영수증
+    this.ticket = null;
+    gbGate((ref) => {
+      launched = true;
+      this.ticket = ref;
+      Promise.resolve().then(start).catch(() => {
+        if (this.ticket === ref) { gbLeave(ref); this.ticket = null; }
+        this.go('title');
+      }).finally(() => { this.starting = false; });
+    }, { kind: 'run' }).finally(() => { if (!launched) this.starting = false; });
+  }
+
+  /** 모드 카드·주 단추가 부른다 */
+  startMode(id) {
+    if (id === 'daily') { this.mode = 'classic'; this.startDaily(this.subject); return; }
+    if (!MODES[id]) id = DEFAULT_MODE;
+    this.mode = id;
+    this.data.mode = id;          // 다음 판에도 고른 모드를 기억한다
+    save(this.data);
+    this.startRun();
   }
 
   applyBodyFlags() {
@@ -183,27 +244,67 @@ export class App {
     const grid = $('#subject-grid');
     grid.textContent = '';
     for (const key of Object.keys(SUBJECTS)) {
-      const meta = SUBJECT_META[key];
-      const card = el('button', 'subject-card');
-      card.type = 'button';
-      card.setAttribute('role', 'listitem');
-      card.append(el('span', 'subject-emoji', meta.emoji));
-      const box = el('span');
-      box.append(el('b', 'subject-name', SUBJECTS[key].label));
-      // 🔴 desc 는 낱말 수를 세야 해서 함수인 것이 있다 — 그대로 넣으면 화면에 함수 «소스»가 찍힌다.
-      box.append(el('span', 'subject-desc', typeof meta.desc === 'function' ? meta.desc() : meta.desc));
-      card.append(box);
-      const best = el('span', 'subject-best');
-      // 🔴 모드가 다르면 층수의 뜻이 다르다 — 카드에는 «지금 고른 모드»의 기록을 보여 준다.
-      best.append(el('b', null, String(this.data.best[this.bestKey(key)] || 0)));
-      best.append(document.createTextNode('최고 층'));
-      card.append(best);
-      card.addEventListener('click', () => this.openScope(key));
-      grid.append(card);
+      const chip = el('button', 'subject-chip');
+      chip.type = 'button';
+      chip.setAttribute('role', 'radio');
+      chip.setAttribute('aria-checked', String(key === this.subject));
+      chip.dataset.subject = key;
+      chip.append(iconEl(SUBJECT_ICON[key], 'chip-ic'));
+      chip.append(el('span', 'chip-name', SUBJECT_META[key].short));
+      chip.addEventListener('click', () => {
+        if (this.subject === key) return;
+        this.subject = key;
+        this.scope = null;
+        this.sound.play('button');
+        this.renderTitle();
+      });
+      grid.append(chip);
     }
+    this.renderDanRow();
+    this.renderModes();
+    const m = MODES[this.mode] || MODES.classic;
+    $('#btn-play').innerHTML = `${icon('logo', 'play-ic')}<span>${SUBJECT_META[this.subject].short} · ${m.label} 시작</span>`;
     this.renderJourney();
     this.renderDaily();
-    this.renderBoard();
+  }
+
+  /** 구구단만 — 단 고르기를 첫 화면 안에서(예전엔 화면 하나를 더 거쳤다: 3탭 → 2탭) */
+  renderDanRow() {
+    const row = $('#dan-row');
+    row.textContent = '';
+    row.hidden = this.subject !== 'gugudan';
+    if (row.hidden) return;
+    const chosen = new Set(this.scope || []);
+    const mk = (label, dan) => {
+      const b = el('button', 'dan-chip', label);
+      b.type = 'button';
+      b.setAttribute('aria-pressed', String(dan === 'all' ? chosen.size === 0 : chosen.has(dan)));
+      b.addEventListener('click', () => {
+        if (dan === 'all') chosen.clear();
+        else if (chosen.has(dan)) chosen.delete(dan); else chosen.add(dan);
+        this.scope = chosen.size ? [...chosen].sort((x, y) => x - y) : null;
+        this.sound.play('button');
+        this.renderDanRow();
+      });
+      row.append(b);
+    };
+    mk('전체', 'all');
+    for (let d = 2; d <= 9; d++) mk(`${d}단`, d);
+  }
+
+  /** 모드 카드(키트 틀) — 카드마다 «지금 고른 과목»의 최고 기록 */
+  renderModes() {
+    const box = $('#modeGrid');
+    const plan = planForNow(this.subject);
+    const stars = todayStars(this.data.flags, plan);
+    renderModeCards(box, MODE_CARDS.map((c) => {
+      const label = c.id === 'daily' ? '오늘의 계단' : MODES[c.id].label;
+      const best = c.id === 'daily'
+        ? (stars ? `오늘 별 ${stars}개` : '')
+        : ((this.data.best[this.bestKey(this.subject, c.id)] || 0) ? `최고 ${this.data.best[this.bestKey(this.subject, c.id)]}층` : '');
+      return { id: c.id, kind: c.kind, icon: icon(MODE_ICON[c.id]), label, desc: c.desc, best };
+    }), (id) => this.play(() => this.startMode(id)));
+    for (const b of box.querySelectorAll('.gb-mode')) b.classList.toggle('is-current', b.dataset.id === this.mode);
   }
 
   // ── 여정 ────────────────────────────────────────────────
@@ -221,7 +322,9 @@ export class App {
     const zones = journeyOf(best);
     zones.forEach((z, i) => {
       const li = el('li', 'zone' + (z.done ? ' done' : '') + (z.locked ? ' locked' : ''));
-      li.append(el('span', 'zone-icon', z.locked ? '🔒' : z.icon));
+      const zi = el('span', 'zone-icon');
+      zi.innerHTML = icon(z.locked ? 'lock' : z.icon);
+      li.append(zi);
       const box = el('span', 'zone-box');
       box.append(el('b', 'zone-name', z.name));
       const range = Number.isFinite(z.to) ? `${z.from}~${z.to}층` : `${z.from}층~`;
@@ -231,7 +334,8 @@ export class App {
       if (z.locked) {
         state.textContent = `${zones[i - 1].name} 완주하면`;
       } else if (z.done) {
-        state.textContent = '완주 ✓';
+        state.textContent = '완주';
+        state.classList.add('is-done');
       } else if (Number.isFinite(z.to)) {
         state.textContent = `${Math.max(0, best - z.from + 1)} / ${z.span}`;
       } else {
@@ -250,10 +354,8 @@ export class App {
     $('#daily-goal').textContent = `목표 ${plan.goal}층`;
     $('#daily-rule').textContent = plan.rule ? plan.rule.label : '오늘은 특별한 규칙이 없어요';
     $('#daily-stars').textContent = '★'.repeat(stars) + '☆'.repeat(3 - stars);
-    const btn = $('#btn-daily');
-    // 🔴 이미 별 3개를 받았어도 «잠그지» 않는다. 더 하고 싶으면 더 할 수 있어야 한다 —
-    //    다만 문구로 «다 했다»를 알려 주어 종료점을 만든다(D40 과 같은 취지).
-    btn.textContent = stars >= 3 ? '오늘의 계단 다시 하기' : '오늘의 계단 도전';
+    // 🔴 이미 별 3개를 받았어도 «잠그지» 않는다(모드 카드로 언제든 다시). 다만 «다 했다»를 알려 종료점을 만든다(D40 취지).
+    $('#daily-stars').setAttribute('aria-label', stars >= 3 ? '오늘 별 3개 — 다 모았어요' : `오늘 별 ${stars}개`);
 
     const wv = weekView(this.data.week, Date.now());
     const marks = $('#week-marks');
@@ -264,137 +366,7 @@ export class App {
       marks.append(li);
     });
     // 🔴 «남은 날»을 세지 않는다(D39). 찍은 칸만 말한다.
-    $('#week-count').textContent = wv.done ? `${wv.count}일 · 황금 계단 ✓` : `${wv.count}일`;
-  }
-
-  // ── 오늘의 등수 ─────────────────────────────────────────
-  /** 이름 칸은 «한 번만» 배선한다 — renderTitle 은 화면을 오갈 때마다 불린다. */
-  wireNick() {
-    if (this._nickWired) return;
-    this._nickWired = true;
-    const input = $('#nick');
-    const msg = $('#nick-msg');
-    const show = (text, bad) => {
-      msg.textContent = text;
-      msg.className = bad ? 'nick-msg bad' : 'nick-msg';
-      input.classList.toggle('bad', !!bad);
-    };
-    input.addEventListener('input', () => {
-      const r = setNick(input.value);
-      if (r.ok) show(`등수판에는 «${displayNick(r.nick)}» 로 올라가요`, false);
-      else show(input.value.trim() ? '이 이름은 쓸 수 없어요. 다른 이름을 지어 주세요.' : '', true);
-    });
-    // 🔴 칸을 떠날 때 못 쓰는 이름이면 저장된 이름으로 되돌린다 — 빈 칸으로 두지 않는다.
-    input.addEventListener('blur', () => { input.value = getNick(); show('', false); });
-    $('#nick-dice').addEventListener('click', () => {
-      const r = setNick(suggestNick());
-      if (r.ok) { input.value = r.nick; show(`«${r.nick}» 로 정했어요`, false); }
-      this.sound.play('button');
-    });
-  }
-
-  renderBoard() {
-    this.wireNick();
-    const nick = getNick();
-    $('#nick').value = nick;
-    $('#board-day').textContent = todayKey().slice(5).replace('-', '월 ') + '일';
-    const list = $('#board-list');
-    const note = $('#board-note');
-    const mine = displayNick(nick);
-
-    // 🔴 등수판은 «있으면 좋은 것»이다 — 인터넷이 없거나 서버가 죽어도 게임은 그대로 돌아간다.
-    note.textContent = '불러오는 중…';
-    fetchBoard(10).then((b) => {
-      list.textContent = '';
-      if (!b.rows.length) {
-        note.textContent = '오늘은 아직 아무도 오르지 않았어요. 첫 번째가 되어 보세요!';
-        return;
-      }
-      b.rows.forEach((r, i) => {
-        const li = el('li', i < 3 ? `top${i + 1}` : null);
-        if (r.n === mine) li.classList.add('me');
-        li.append(el('span', 'rk', String(i + 1)));
-        li.append(el('span', 'nm', r.n));
-        li.append(el('span', 'sb', subLabel(r.sub)));
-        li.append(el('span', 'fl', `${r.s}층`));
-        list.append(li);
-      });
-      note.textContent = b.total > b.rows.length ? `오늘 ${b.total}명이 올랐어요` : '';
-    }).catch(() => {
-      list.textContent = '';
-      note.textContent = '등수판을 불러오지 못했어요. 게임은 그대로 즐길 수 있어요.';
-    });
-  }
-
-  /** 모드 고르기 — 규칙을 «고르기 전에» 읽을 수 있어야 한다(모드 이름만으로는 아무도 모른다) */
-  renderModePicker() {
-    const box = $('#mode-picker');
-    box.textContent = '';
-    for (const [key, m] of Object.entries(MODES)) {
-      const b = el('button', 'mode-opt');
-      b.type = 'button';
-      b.dataset.mode = key;
-      b.setAttribute('aria-pressed', String(key === this.mode));
-      const txt = el('div', 'mo-txt');
-      txt.append(el('span', 'mo-name', m.label));
-      txt.append(el('span', 'mo-hint', m.hint));
-      b.append(el('span', 'mo-icon', key === 'thrill' ? '🔥' : key === 'sprint' ? '⏱️' : '♾️'));
-      b.append(txt);
-      b.addEventListener('click', () => {
-        this.mode = key;
-        this.data.mode = key;      // 다음 판에도 고른 모드를 기억한다
-        save(this.data);
-        for (const o of box.children) o.setAttribute('aria-pressed', String(o.dataset.mode === key));
-        this.sound.play('button');
-      });
-      box.append(b);
-    }
-  }
-
-  // ── 범위 ────────────────────────────────────────────────
-  openScope(subject) {
-    this.subject = subject;
-    this.scope = null;
-    $('#scope-title').textContent = `${SUBJECTS[subject].label} — 범위 고르기`;
-    this.renderModePicker();
-    const body = $('#scope-body');
-    body.textContent = '';
-    if (subject === 'gugudan') {
-      const grid = el('div', 'dan-grid');
-      const chosen = new Set();
-      const buttons = [];
-      const mkBtn = (label, dan) => {
-        const b = el('button', 'dan-btn', label);
-        b.type = 'button';
-        b.setAttribute('aria-pressed', 'false');
-        b.addEventListener('click', () => {
-          if (dan === 'all') {
-            chosen.clear();
-            for (const x of buttons) x.setAttribute('aria-pressed', String(x === b));
-          } else {
-            if (chosen.has(dan)) chosen.delete(dan); else chosen.add(dan);
-            b.setAttribute('aria-pressed', String(chosen.has(dan)));
-            buttons[0].setAttribute('aria-pressed', String(chosen.size === 0));
-          }
-          this.scope = chosen.size ? [...chosen].sort((x, y) => x - y) : null;
-        });
-        buttons.push(b);
-        return b;
-      };
-      const all = mkBtn('전체', 'all');
-      all.setAttribute('aria-pressed', 'true');
-      grid.append(all);
-      for (let d = 2; d <= 9; d++) grid.append(mkBtn(`${d}단`, d));
-      body.append(grid);
-      body.append(el('p', 'scope-note', '고르지 않으면 2단부터 9단까지 전부 나와요. 여러 단을 같이 골라도 돼요.'));
-    } else {
-      const n = poolOf(subject).length;
-      const ko = subject.startsWith('korean');
-      body.append(el('p', 'scope-note', ko
-        ? `낱말 ${n}개를 «낱말 → 뜻»과 «뜻 → 낱말» 두 방향으로 물어봐요. 틀린 낱말은 오답노트에 담겨 며칠 뒤 다시 나와요.`
-        : `낱말 ${n}개를 «영어 → 뜻»과 «뜻 → 영어» 두 방향으로 물어봐요. 틀린 낱말은 오답노트에 담겨 며칠 뒤 다시 나와요.`));
-    }
-    this.go('scope');
+    $('#week-count').textContent = wv.done ? `${wv.count}일 · 황금 계단` : `${wv.count}일`;
   }
 
   // ── 런 ──────────────────────────────────────────────────
@@ -421,6 +393,7 @@ export class App {
     this.smokeMode = false;
     this.smokeRun = 0;
     this.settled = false;
+    this._recordFired = false;
     this.core = new GameCore({ seed, subject: this.subject, scope: this.scope, mode: this.mode, notes: this.notes });
     this.runStartCoins = this.data.coins;
     this.paused = false;
@@ -458,38 +431,13 @@ export class App {
 
   /** 중간에 그만두기 — 이번 판에서 번 것은 «잃지 않고» 정산한다 */
   quitRun() {
+    // 중간에 나감 — 판이 끝나기 전이면 영수증을 «나감»으로 닫는다(90초 안이면 환불, 넘으면 끝까지 못 감)
+    if (this.ticket && this.core && !this.settled) { void gbLeave(this.ticket); this.ticket = null; }
     this.paused = false;
     $('#overlay-pause').hidden = true;
     if (this.core && !this.settled) this.showResult();
     else this.endRun(true);
     this.go('title');
-  }
-
-  /**
-   * 전체화면 — 브라우저 주소창·하단바가 화면의 20%를 먹는다. 계단 게임에서 그만큼은 층 수다.
-   * 🔴 «자동»으로는 불가능하다. Fullscreen API 는 사용자 제스처 안에서만 허용되므로
-   *    로드 시점이 아니라 「시작」을 누른 그 호출 스택에서 요청한다.
-   * 🔴 iOS Safari 는 임의 요소의 전체화면을 지원하지 않는다 — 거기서는 조용히 실패하고
-   *    홈 화면에 추가(PWA standalone)가 같은 역할을 한다. 그래서 실패를 «오류로 만들지» 않는다.
-   */
-  requestFullscreen() {
-    const el = document.documentElement;
-    const fn = el.requestFullscreen || el.webkitRequestFullscreen;
-    if (!fn || document.fullscreenElement) return false;
-    // 제스처가 «지금» 살아 있는지 브라우저에게 직접 묻는다 — 없으면 요청 자체를 하지 않는다.
-    const ua = navigator.userActivation;
-    if (ua && ua.isActive === false) return false;
-    try {
-      const p = fn.call(el, { navigationUI: 'hide' });
-      if (p && p.catch) p.catch(() => { /* 사용자가 거부했거나 미지원 — 창 모드로 그냥 논다 */ });
-      // 세로 고정은 지원하는 기기에서만. 실패해도 게임은 그대로 된다.
-      const so = screen.orientation;
-      if (so && typeof so.lock === 'function') {
-        const q = so.lock('portrait');
-        if (q && q.catch) q.catch(() => { /* 데스크톱·미지원 */ });
-      }
-      return true;
-    } catch { return false; }
   }
 
   pause() {
@@ -573,16 +521,32 @@ export class App {
       this.sound.setIntensity(res.floor, tierIndexFor(res.floor), tierStartFor(res.floor));
       if (this.scene) this.scene.jumpTo(q.answerIndex, res.floor);
       this.markChoice(q.answerIndex, 'is-correct');
+      // 착지 — 점프 트윈(220ms)이 끝나는 순간. 판이 그 사이 끝났으면 울리지 않는다.
+      const runAt = this.core;
+      clearTimeout(this._landTimer);
+      this._landTimer = setTimeout(() => { if (this.core === runAt && this.screen === 'play') this.J.fire('land', { vol: 0.8 }); }, TIMING.JUMP_MS || 220);
       if (res.bonus) {
-        this.J.fire('streak', { title: `🔥 ${this.core.streak}연속!`, color: '#ffe066' });
+        this.J.fire('streak', { title: `${this.core.streak}연속!`, color: '#ffe066' });
         this.flashStreak(this.core.streak, res.healed);
+        const sp = $('#hud-floor').getBoundingClientRect();
+        this.J.fire('coin', { x: sp.left + sp.width / 2, y: sp.bottom + 24, text: '+5', color: '#ffd24a' });
+        if (res.healed) {
+          const hp = $('#hud-hearts').getBoundingClientRect();
+          this.J.fire('heart', { x: hp.left + hp.width / 2, y: hp.bottom + 18, text: '+1', color: '#ff7a8a' });
+        }
+      }
+      // 최고 기록을 «넘는 순간» — 결과 화면까지 기다리지 않고 판 안에서 축하한다(한 판에 한 번)
+      const prevBest = this.data.best[this.bestKey()] || 0;
+      if (!this._recordFired && prevBest > 0 && res.floor === prevBest + 1 && !this.smokeMode) {
+        this._recordFired = true;
+        this.J.fire('record', { title: '신기록!', color: '#ffd24a' });
       }
       // 10층마다 «금 발판» — 아래로 흘러가는 계단이 그대로 고도계가 된다.
       if (res.floor % 10 === 0) {
-        this.J.fire('milestone', { sfx: 'coin', title: `🏁 ${res.floor}층 돌파!`, color: '#ffcf6a' });
-        this.say(fb, `🏁 ${res.floor}층 돌파!`, 'good');
-      } else if (res.boxState === 'graduated') this.say(fb, '🎓 이제 완전히 내 거!', 'good');
-      else if (res.graduated === 'graduated') this.say(fb, '👍 오늘은 이 문제 통과!', 'good');
+        this.J.fire('milestone', { sfx: 'coin', title: `${res.floor}층 돌파!`, color: '#ffcf6a' });
+        this.say(fb, `${res.floor}층 돌파!`, 'good');
+      } else if (res.boxState === 'graduated') this.say(fb, '이제 완전히 내 거!', 'good');
+      else if (res.graduated === 'graduated') this.say(fb, '오늘은 이 문제 통과!', 'good');
     } else {
       this.J.fire('wrong', { sfx: res.type === 'timeout' ? 'timeout' : 'wrong', color: '#ff6b6b' });
       if (this.scene) this.scene.stumble(res.chose, q.answerIndex);
@@ -604,7 +568,7 @@ export class App {
   flashStreak(streak, healed) {
     const chip = $('#streak-chip');
     chip.hidden = false;
-    chip.textContent = healed ? `🔥 ${streak}연속! 하트 +1` : `🔥 ${streak}연속!`;
+    chip.innerHTML = `${icon('flame')}<span>${healed ? `${streak}연속! 하트 +1` : `${streak}연속!`}</span>`;
     clearTimeout(this._streakTimer);
     this._streakTimer = setTimeout(() => { chip.hidden = true; }, 1200);
   }
@@ -669,7 +633,7 @@ export class App {
       const n = c.rules.hearts;
       if (hearts.childElementCount !== n) {
         hearts.textContent = '';
-        for (let i = 0; i < n; i++) hearts.append(el('span', 'heart', '♥'));
+        for (let i = 0; i < n; i++) { const h = el('span', 'heart'); h.innerHTML = icon('heart'); hearts.append(h); }
       }
       [...hearts.children].forEach((h, i) => h.classList.toggle('lost', i >= c.hearts));
     }
@@ -820,7 +784,7 @@ export class App {
     }
     this.persist();
 
-    $('#result-title').textContent = isBest ? '🎉 새 기록!' : '기록';
+    $('#result-title').textContent = isBest ? '새 기록!' : '기록';
     $('#result-floor').textContent = c.floor;
     $('#result-acc').textContent = `${Math.round(c.accuracy * 100)}%`;
     $('#result-coin').textContent = c.coins + (missions.gained || 0);
@@ -837,12 +801,20 @@ export class App {
 
     this.renderGoals(c, dailyStars);
 
-    // 오늘 판에 올린다. 실패해도 게임 흐름은 건드리지 않는다(있으면 좋은 것).
-    // 🔴 «과목:모드» 로 보낸다 — 규칙이 다른 기록을 한 표에 줄 세우면 등수가 실력이 아니라
-    //    모드 선택을 재게 된다(서버도 같은 키로만 받는다: worker/src/rank-core.js).
-    submitScore(this.subject, c.floor, { mode: this.mode }).then((r) => {
-      if (r && r.ok && r.rank) $("#result-gap").textContent = `오늘 ${r.rank}등! · ${this.data.best[this.bestKey()]}층이 내 최고`;
-    }).catch(() => { /* 오프라인 — 조용히 넘어간다 */ });
+    // 학교 점수 정산 — 개인 등수판은 없다(2026-10-13 사용자 «학교랭킹으로 하자»). 아이 이름은 어디에도 안 나간다.
+    //    «끝까지 감» = 첫 금 발판(10층)을 넘었거나 오늘의 계단 별을 받았을 때. 실패해도 게임 흐름은 그대로(있으면 좋은 것).
+    const sch = $('#result-school');
+    sch.hidden = true;
+    const ref = this.ticket;
+    this.ticket = null;
+    if (ref) {
+      gbFinish(ref, c.floor >= CLEAR_FLOOR || dailyStars > 0).then((r) => {
+        if (!r || !r.added || !r.school) return;
+        sch.innerHTML = `${icon('school')}<span>${shortSchool(r.school)} <b>+${r.added}점</b></span>`;
+        sch.hidden = false;
+        this.J.fire('school', { title: `${shortSchool(r.school)} +${r.added}점`, color: '#8fe3c0' });
+      }).catch(() => { /* 오프라인 — 조용히 넘어간다 */ });
+    }
 
     const miss = $('#result-miss');
     miss.textContent = '';
@@ -883,9 +855,11 @@ export class App {
     const ul = $('#result-goals');
     if (!ul) return;
     ul.textContent = '';
-    const add = (icon, text) => {
+    const add = (name, text) => {
       const li = el('li', 'goal');
-      li.append(el('span', 'goal-icon', icon));
+      const gi = el('span', 'goal-icon');
+      gi.innerHTML = icon(name);
+      li.append(gi);
       li.append(el('span', 'goal-text', text));
       ul.append(li);
     };
@@ -902,20 +876,20 @@ export class App {
 
     // ② 숙련도 — 가장 약한 칸 하나만. 여덟 개를 늘어놓으면 못하는 곳의 목록이 된다.
     const weak = weakest(this.data.mastery, this.subject);
-    if (weak) add('📊', `${weak.label} ${weak.pct}%`);
+    if (weak) add('chart', `${weak.label} ${weak.pct}%`);
 
     // ③ 오늘의 계단 — 했으면 별, 안 했으면 있다는 사실만
     if (this.daily) {
-      add('📅', `오늘의 계단 ${'★'.repeat(dailyStars)}${'☆'.repeat(3 - dailyStars)}`);
+      add('calendar', `오늘의 계단 ${'★'.repeat(dailyStars)}${'☆'.repeat(3 - dailyStars)}`);
     } else {
       const t = todayStars(this.data.flags, planForNow(this.subject));
-      if (!t) add('📅', '오늘의 계단이 기다려요');
+      if (!t) add('calendar', '오늘의 계단이 기다려요');
     }
 
     // ④ 이번 주 도장 — 달성했으면 축하만, 아니면 «몇 칸 찍었는지»만 말한다(남은 날 압박 금지)
     const wv = weekView(this.data.week, Date.now());
-    if (wv.done) add('🗓️', `이번 주 ${wv.count}일 — 황금 계단 열림`);
-    else add('🗓️', `이번 주 ${wv.count}일 놀았어요`);
+    if (wv.done) add('week', `이번 주 ${wv.count}일 — 황금 계단 열림`);
+    else add('week', `이번 주 ${wv.count}일 놀았어요`);
   }
 
   // ── 오답노트 ────────────────────────────────────────────

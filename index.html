@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
 <meta name="theme-color" content="#101a2c" />
-<meta name="description" content="정답을 밟고 오르는 학습 계단. 구구단과 영단어를 한눈에 즉답하며 층을 올리는 아케이드 학습 게임." />
+<meta name="description" content="정답을 밟고 오르는 학습 계단. 구구단·영단어·국어 낱말을 즉답하며 층을 올리고, 우리 학교 점수를 쌓는 아케이드 학습 게임." />
 <title>오르답 — 정답을 밟고 오르는 학습 계단</title>
 <link rel="manifest" href="./manifest.webmanifest" />
 <link rel="icon" href="./icon.svg" type="image/svg+xml" />
@@ -17,78 +17,67 @@
 <div id="world" aria-hidden="true"></div>
 
 <main id="app">
-  <!-- ── 타이틀 ───────────────────────────────────────────── -->
-  <section id="screen-title" class="screen active">
-    <header class="title-head">
-      <h1 class="logo"><span class="logo-mark">▲</span>오르답</h1>
-      <p class="tagline">정답을 밟아야 한 층 오른다</p>
-      <div class="coin-chip" id="title-coins" aria-live="polite"><span class="coin-ico">●</span><span id="title-coin-n">0</span></div>
-    </header>
-    <div class="subject-grid" id="subject-grid" role="list"></div>
-
-    <!-- 🗺️ 여정 — 「어디까지 왔나」. 해금은 코인이 아니라 도달 층이다(D38). -->
-    <section class="journey" aria-labelledby="journey-h">
-      <div class="board-head">
-        <h2 id="journey-h">나의 여정</h2>
-        <span class="board-day" id="journey-subject"></span>
+  <!-- ── 첫 화면(game-builder 기본틀 셸) ───────────────────────
+       ① 학교 순위 맨 위(접지 않음) ② 과목 ③ 주 단추 1개 ④ 같은 모양 모드 카드 ⑤ 보조 줄.
+       PC 에서는 오른쪽에 «나의 여정·오늘의 계단»을 둔다(빈 화면 70% 를 쓰는 2단). -->
+  <section id="screen-title" class="screen active home">
+    <div class="gb-home home-wrap">
+      <header class="gb-home-top">
+        <h1 class="gb-brand logo"><span class="logo-mark" id="logo-mark"></span>오르답</h1>
+        <div class="gb-tools">
+          <span class="coin-chip" id="title-coins" aria-live="polite"><span class="coin-ico" id="coin-ico"></span><span id="title-coin-n">0</span></span>
+          <button class="gb-icon" id="btnFull" type="button" aria-label="전체화면"></button>
+          <button class="gb-icon" id="btn-settings" data-go="settings" type="button" aria-label="설정"></button>
+        </div>
+      </header>
+      <div class="home-grid">
+        <div class="home-main">
+          <div id="schoolRank"></div>
+          <section class="pick" aria-labelledby="pick-h">
+            <h2 class="pick-h" id="pick-h">무엇을 오를까요?</h2>
+            <div class="subject-chips" id="subject-grid" role="radiogroup" aria-label="과목"></div>
+            <div class="dan-row" id="dan-row" role="group" aria-label="구구단 범위"></div>
+          </section>
+          <button class="gb-play" id="btn-play" data-gb="play" type="button">시작하기</button>
+          <div id="modeGrid" aria-label="모드"></div>
+          <nav class="gb-sub">
+            <button data-go="notes" type="button">오답노트</button>
+            <button data-go="collection" type="button">컬렉션</button>
+            <button id="btn-how-home" type="button">놀이 방법</button>
+          </nav>
+        </div>
+        <aside class="home-side">
+          <!-- 여정 — 「어디까지 왔나」. 해금은 코인이 아니라 도달 층이다(D38). -->
+          <section class="journey panel" aria-labelledby="journey-h">
+            <div class="board-head">
+              <h2 id="journey-h">나의 여정</h2>
+              <span class="board-day" id="journey-subject"></span>
+            </div>
+            <ul class="zone-list" id="zone-list"></ul>
+          </section>
+          <!-- 오늘의 계단 — 날짜가 시드다(D37). 시작은 모드 카드에서 한다(주 단추는 하나뿐). -->
+          <section class="daily-card panel" aria-labelledby="daily-h">
+            <div class="board-head">
+              <h2 id="daily-h">오늘의 계단</h2>
+              <span class="board-day" id="daily-day"></span>
+            </div>
+            <p class="daily-goal" id="daily-goal"></p>
+            <p class="daily-rule" id="daily-rule"></p>
+            <div class="daily-row"><span class="daily-stars" id="daily-stars" aria-live="polite"></span></div>
+            <!-- 🔴 D39: 「안 하면 사라져요」류 문구를 두지 않는다. 지난 날은 그냥 비어 있을 뿐이다. -->
+            <div class="week-row">
+              <span class="week-label">이번 주</span>
+              <ul class="week-marks" id="week-marks" aria-label="이번 주 논 날"></ul>
+              <span class="week-count" id="week-count"></span>
+            </div>
+          </section>
+        </aside>
       </div>
-      <ul class="zone-list" id="zone-list"></ul>
-    </section>
-
-    <!-- 📅 오늘의 계단 — 날짜가 시드다. 서버도 계정도 쓰지 않는다(D37). -->
-    <section class="daily-card" aria-labelledby="daily-h">
-      <div class="board-head">
-        <h2 id="daily-h">오늘의 계단</h2>
-        <span class="board-day" id="daily-day"></span>
-      </div>
-      <p class="daily-goal" id="daily-goal"></p>
-      <p class="daily-rule" id="daily-rule"></p>
-      <div class="daily-row">
-        <span class="daily-stars" id="daily-stars" aria-live="polite"></span>
-        <button class="primary-btn daily-btn" id="btn-daily" type="button">오늘의 계단 도전</button>
-      </div>
-      <!-- 🔴 D39: 「안 하면 사라져요」류 문구를 두지 않는다. 지난 날은 그냥 비어 있을 뿐이다. -->
-      <div class="week-row">
-        <span class="week-label">이번 주</span>
-        <ul class="week-marks" id="week-marks" aria-label="이번 주 논 날"></ul>
-        <span class="week-count" id="week-count"></span>
-      </div>
-    </section>
-
-    <nav class="title-nav">
-      <button class="nav-btn" data-go="notes" type="button">오답노트</button>
-      <button class="nav-btn" data-go="collection" type="button">컬렉션</button>
-      <button class="nav-btn" data-go="settings" type="button">설정</button>
-    </nav>
-    <section class="board" aria-labelledby="board-h">
-      <div class="board-head">
-        <h2 id="board-h">오늘의 등수</h2>
-        <span class="board-day" id="board-day"></span>
-      </div>
-      <div class="nick-row">
-        <label class="nick-label" for="nick">내 이름</label>
-        <input id="nick" class="nick-input" type="text" maxlength="8" inputmode="text"
-               autocomplete="off" autocorrect="off" spellcheck="false" aria-describedby="nick-msg">
-        <button class="nick-dice" id="nick-dice" type="button" aria-label="다른 이름 뽑기">🎲</button>
-      </div>
-      <p class="nick-msg" id="nick-msg" aria-live="polite"></p>
-      <ol class="board-list" id="board-list" aria-live="polite"></ol>
-      <p class="board-note" id="board-note"></p>
-    </section>
-    <p class="footer-note">
-      기록은 이 기기에 저장됩니다. 나이·학교·계정은 받지 않습니다.<br>
-      등수판에 올라가는 것은 <b>이름과 층수뿐</b>이고, 직접 지은 이름은 <b>보내기 전에 가려집니다</b>(김철수 → 김*수).
-    </p>
-  </section>
-
-  <!-- ── 범위 선택 ─────────────────────────────────────────── -->
-  <section id="screen-scope" class="screen">
-    <button class="back-btn" data-go="title" type="button" aria-label="뒤로">←</button>
-    <h2 id="scope-title">범위 고르기</h2>
-    <div id="scope-body"></div>
-    <h3 class="mode-title">모드</h3>
-    <div id="mode-picker" class="mode-picker"></div>
-    <button class="primary-btn" id="scope-start" type="button">시작하기</button>
+      <p class="footer-note">
+        기록은 이 기기에 저장돼요. 이름·나이·계정은 받지 않아요.<br>
+        학교 순위에는 <b>학교 이름과 학교 점수</b>만 올라가요.
+      </p>
+    </div>
   </section>
 
   <!-- ── 플레이 ───────────────────────────────────────────── -->
@@ -100,8 +89,9 @@
         <div class="stamina-fill" id="stamina-fill"></div>
       </div>
       <div class="floor-box"><span class="floor-n" id="hud-floor">0</span><span class="floor-unit">층</span></div>
-      <button class="icon-btn" id="btn-how" type="button" aria-label="놀이 방법">?</button>
-      <button class="icon-btn" id="btn-pause" type="button" aria-label="일시정지">॥</button>
+      <button class="icon-btn" id="btn-how" type="button" aria-label="놀이 방법"></button>
+      <button class="icon-btn" id="btnFullPlay" type="button" aria-label="전체화면"></button>
+      <button class="icon-btn" id="btn-pause" type="button" aria-label="일시정지"></button>
     </div>
     <div class="qcard" id="qcard">
       <div class="qtext" id="qtext">준비</div>
@@ -127,6 +117,7 @@
     </div>
     <div class="result-cause" id="result-cause"></div>
     <div class="result-gap" id="result-gap"></div>
+    <div class="result-school" id="result-school" hidden></div>
     <!-- 🔴 «미완성 목표»를 셋 보여 준다. 하나뿐이면 그것을 넘은 순간 갈 곳이 없어진다.
          근거 = docs/RESEARCH-retention.md (Doodle Jump 개인기록 + Khan 숙련도 + 수집 진행도) -->
     <ul class="goal-list" id="result-goals"></ul>
@@ -141,7 +132,7 @@
 
   <!-- ── 오답노트 ─────────────────────────────────────────── -->
   <section id="screen-notes" class="screen">
-    <button class="back-btn" data-go="title" type="button" aria-label="뒤로">←</button>
+    <button class="back-btn" data-go="title" type="button" aria-label="뒤로"></button>
     <h2>오답노트</h2>
     <p class="hint">●가 4개가 되면 «완전히 내 거»예요. 며칠 간격으로 다시 나와요.</p>
     <div id="notes-list" class="notes-list"></div>
@@ -149,7 +140,7 @@
 
   <!-- ── 컬렉션 ───────────────────────────────────────────── -->
   <section id="screen-collection" class="screen">
-    <button class="back-btn" data-go="title" type="button" aria-label="뒤로">←</button>
+    <button class="back-btn" data-go="title" type="button" aria-label="뒤로"></button>
     <h2>컬렉션</h2>
     <div class="coin-chip big"><span class="coin-ico">●</span><span id="coll-coins">0</span></div>
     <h3>친구</h3>
@@ -160,7 +151,7 @@
 
   <!-- ── 설정 ─────────────────────────────────────────────── -->
   <section id="screen-settings" class="screen">
-    <button class="back-btn" data-go="title" type="button" aria-label="뒤로">←</button>
+    <button class="back-btn" data-go="title" type="button" aria-label="뒤로"></button>
     <h2>설정</h2>
     <div class="settings-list" id="settings-list"></div>
     <h3>오늘의 미션</h3>

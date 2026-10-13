@@ -200,10 +200,30 @@
       "bytes": 8806,
       "m4a": "gameover.m4a"
     },
+    "heart": {
+      "ogg": "heart.ogg",
+      "bytes": 6954,
+      "m4a": "heart.m4a"
+    },
     "heartbeat": {
       "ogg": "heartbeat.ogg",
       "bytes": 10977,
       "m4a": "heartbeat.m4a"
+    },
+    "land": {
+      "ogg": "land.ogg",
+      "bytes": 6853,
+      "m4a": "land.m4a"
+    },
+    "record": {
+      "ogg": "record.ogg",
+      "bytes": 13028,
+      "m4a": "record.m4a"
+    },
+    "school": {
+      "ogg": "school.ogg",
+      "bytes": 9435,
+      "m4a": "school.m4a"
     },
     "streak": {
       "ogg": "streak.ogg",
@@ -221,7 +241,7 @@
       "m4a": "wrong.m4a"
     }
   },
-  "audioBytes": 2403346,
-  "eagerAudioBytes": 848238,
+  "audioBytes": 2439616,
+  "eagerAudioBytes": 884508,
   "totalBytes": 497844
 }

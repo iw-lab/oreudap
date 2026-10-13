@@ -1,0 +1,14 @@
+# oreudap 학교 허브 — 다른 계정(8d3bdf75848452c42b8fccca0109c604) — tools/hub.sh 가 정본. game-builder kit/school-hub 로 깔았다.
+# 배포 = tools/hub.sh deploy (로그인 이메일 확인 후). 비밀: QUIZ_KEY(문제 묶음 봉인) · PROXY_KEY(게임 페이지 중계만 받기)
+name = "oreudap-hub"
+main = "src/index.js"
+compatibility_date = "2026-08-01"
+account_id = "8d3bdf75848452c42b8fccca0109c604"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "oreudap-hub"
+database_id = "c99cd02b-b7fb-4644-a786-f5294674967c"
+
+[vars]
+FREE_PLAY = "1"

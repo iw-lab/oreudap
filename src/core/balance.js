@@ -183,11 +183,12 @@ export const SHOP = {
  * 🔴 과목마다 따로 진행한다. 구구단으로 연 우주를 영단어에서 다시 여는 것이
  *    「내가 이만큼 했다」를 과목별로 만든다(한 번 열면 끝이면 두 번째 과목에 갈 이유가 없다).
  */
+// icon = src/ui/icons.js 이름(이모지 금지 — check-no-emoji)
 export const ZONES = [
-  { id: 'forest', name: '숲의 계단',   icon: '🌳', end: 20 },
-  { id: 'cloud',  name: '구름 계단',   icon: '☁️', end: 50 },
-  { id: 'space',  name: '우주 계단',   icon: '🌌', end: 90 },
-  { id: 'lava',   name: '용암 계단',   icon: '🌋', end: Infinity },
+  { id: 'forest', name: '숲의 계단',   icon: 'forest', end: 20 },
+  { id: 'cloud',  name: '구름 계단',   icon: 'cloud', end: 50 },
+  { id: 'space',  name: '우주 계단',   icon: 'planet', end: 90 },
+  { id: 'lava',   name: '용암 계단',   icon: 'volcano', end: Infinity },
 ];
 
 /**

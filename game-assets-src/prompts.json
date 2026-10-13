@@ -1,0 +1,19 @@
+{
+ "style": "cute chibi animal mascot game character, big round head about 2.5 heads tall, soft clean toon shading, thick dark outline, warm saturated palette",
+ "who": {
+  "rabbit": "white rabbit with long upright ears with pink insides, small pink nose, rosy cheeks, light blue scarf",
+  "cat": "orange tabby cat with darker orange stripes, white muzzle and paws, green collar with a small gold bell",
+  "bear": "brown bear cub with round ears, cream muzzle and belly, red hoodie",
+  "fox": "orange fox with white chest and white tail tip, big fluffy tail, small green backpack straps",
+  "owl": "round brown owl with big yellow eyes, cream belly feathers, small round glasses, wings shaped like arms",
+  "penguin": "little penguin, black back and head, white belly and face, orange beak and feet, yellow knitted beanie",
+  "dragon": "small friendly green baby dragon, cream belly, tiny wings on the back, little rounded horns, short tail"
+ },
+ "pose": {
+  "tpose": "standing in a T-pose, both arms stretched straight out horizontally to the sides, legs slightly apart, facing the camera"
+ },
+ "framing": "front view, full body with both feet visible, single isolated character, centered, about 10% margin on every side",
+ "bg": "plain flat single-color light gray background, no floor, no shadow on the background, no gradient",
+ "neg": "no text, no logo, no watermark, no props, no other characters",
+ "note": "리그 원화 = T포즈 정면(rig-characters.py). refs = v1 캐릭터 그림(같은 아이로 알아보게)"
+}
