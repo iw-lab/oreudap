@@ -40,14 +40,16 @@ notes.push(`부팅 ${Date.now() - t0}ms`);
 await page.click('.subject-chip >> nth=0');
 await page.click('#btn-play');
 await page.waitForFunction(() => window.__SMOKE__.app.core && window.__SMOKE__.app.core.phase === 'question', null, { timeout: 15000 });
-let correct = 0;
+let correct = 0, raced = 0;
+const badClicks = [];
 const WANT = 10;
 for (let i = 0; i < 60 && correct < WANT; i++) {
   const s = await page.evaluate(() => {
     const c = window.__SMOKE__.app.core;
-    return { phase: c.phase, ans: c.question ? c.question.answerIndex : -1, floor: c.floor, hearts: c.hearts };
+    return { phase: c.phase, answered: c.answered, qid: c.question && c.question.id, ans: c.question ? c.question.answerIndex : -1, floor: c.floor, hearts: c.hearts };
   });
-  if (s.phase !== 'question') { await page.waitForTimeout(200); continue; }
+  // 답할 수 있을 때만 누른다(문항 phase 인데 이미 판정된 순간에 누르면 «무시된 클릭»을 정답으로 세어 거짓 FAIL — 2026-10-13 부하 중 9/10)
+  if (s.phase !== 'question' || s.answered) { await page.waitForTimeout(200); continue; }
   const t = await page.evaluate((idx) => {
     const c = document.querySelectorAll('.choice')[idx];
     if (!c) return null;
@@ -56,9 +58,16 @@ for (let i = 0; i < 60 && correct < WANT; i++) {
   }, s.ans);
   if (!t) break;
   await page.waitForTimeout(280);
+  // 🔴 클릭 «직전» 상태를 다시 잰다 — 호스트 부하(load 50+)로 프레임이 250ms 상한에 걸리면 첫 문항 2.6초가 클릭 전에
+  //    시간초과로 끝난다(2026-10-13 실측: 정답 클릭 6.4초 전에 timeout). 그 클릭은 «무시돼야 맞는» 클릭이라 세지 않고,
+  //    답할 수 있을 때 누른 클릭만 «정확히 +1층»을 단언한다(무시·두 층 오름은 그대로 FAIL).
+  const pre = await page.evaluate(() => { const c = window.__SMOKE__.app.core; return { ok: c.phase === 'question' && !c.answered, f: c.floor, q: c.question && c.question.id }; });
+  if (!pre.ok || pre.q !== s.qid) { raced += 1; continue; }
   await page.mouse.click(t.x, t.y);
-  correct += 1;
   await page.waitForTimeout(120);
+  const post = await page.evaluate(() => window.__SMOKE__.app.core.floor);
+  if (post !== pre.f + 1) badClicks.push(`${pre.f}층에서 정답 클릭 → ${post}층`);
+  correct += 1;
 }
 const final = await page.evaluate(() => ({ floor: window.__SMOKE__.app.core.floor, qa: window.__SMOKE__.qa() }));
 notes.push(`실제 클릭 ${correct}회 → ${final.floor}층 · 오디오 ${final.qa.audio.decoded}/${final.qa.audio.expected} · 좀비트윈 ${final.qa.zombieTweens}`);
@@ -67,6 +76,8 @@ await page.screenshot({ path: 'qa/live.png' });
 
 // 🔴 판정은 «정답 1회 = 1층»이다. 절대 층수로 문턱을 잡으면 게이트가 틀린 것을 재게 된다.
 if (correct < WANT) fails.push(`정답 클릭 ${correct}회 < ${WANT} — 표본 부족(측정 무효)`);
+if (badClicks.length) fails.push(`답할 수 있을 때 누른 정답이 +1층이 아니다: ${badClicks.slice(0, 3).join(' · ')}`);
+if (raced) notes.push(`누르기 직전에 문항이 이미 끝나 있던 경우 ${raced}회(호스트 부하 · 시간초과) — 세지 않음`);
 if (final.floor !== correct) fails.push(`정답 ${correct}회인데 ${final.floor}층 — 정답 1회당 정확히 1층이어야 한다`);
 if (final.qa.audio.decoded < final.qa.audio.expected) fails.push(`오디오 ${final.qa.audio.expected - final.qa.audio.decoded}개 미디코드`);
 if (final.qa.loadErrors.length) fails.push(`에셋 로드 실패: ${final.qa.loadErrors.join(', ')}`);
