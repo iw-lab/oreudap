@@ -35,6 +35,10 @@ run "정답 위치 균형 (D8)"             node tools/answer-balance.mjs
 run "밸런스 격자 (D10·D8b)"           node tools/probe-grid.mjs N=300 --gate
 run "다양성 (D30)"                    node tools/probe-variety.mjs --gate
 run "모드 밸런스 (D33)"               node tools/probe-modes.mjs N=300 --gate
+run "학습 공통 4행 (D55)"            node tools/learn-gates.mjs N=500
+run "기본틀 정적 (D44)"               node "$HOME/.claude/skills/game-builder/tools/gate-baseline.mjs" . --static
+run "이모지 0 (D50)"                  node "$HOME/.claude/skills/game-builder/tools/check-no-emoji.mjs" .
+run "반응 9종 (D54)"                  node "$HOME/.claude/skills/game-builder/tools/check-juice.mjs" .
 run "결정론 (D19)"                    "$HOME/.claude/skills/game-builder/tools/check-determinism.sh"
 run "GDD 표 동기화"                   node tools/sync-gdd-table.mjs --check
 run "에셋 매니페스트"                  python3 tools/process-assets.py --check

@@ -277,7 +277,7 @@ describe('SRS — 세션 큐와 영속 박스 [D11]', () => {
     const seen = [];
     for (let i = 0; i < 4; i++) seen.push(src.next(2).id);
     expect(seen[2]).toBe(first.id);       // index 1,2,3 → 3번째가 재출제(1+3)
-    expect(SRS.NO_REPEAT_WINDOW).toBe(5); // 반복 금지 창보다 짧다 = 예외가 실제로 작동한다
+    expect(SRS.NO_REPEAT_WINDOW).toBeGreaterThan(3); // 복습 간격(3)이 반복 금지 창보다 짧다 = 예외가 실제로 작동한다
   });
 
   it('세션 3회 정답이면 큐 졸업', () => {

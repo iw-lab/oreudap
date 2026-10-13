@@ -224,7 +224,7 @@ export const SRS = {
   BOX_DAYS: [1, 3, 7, 16],       // 영속 오답노트 박스별 재출제 간격(일)
   MAX_BOX: 4,                    // 졸업 박스
   WEIGHT_MAX: 3,                 // 약점 항목 출제 가중 상한(배)
-  NO_REPEAT_WINDOW: 5,           // 무작위 출제에서 직전 N문항 반복 금지(복습 큐는 예외)
+  NO_REPEAT_WINDOW: 8,           // 무작위 출제에서 직전 N문항 반복 금지(복습 큐는 예외) — v2: 5→8(game-builder 다양성 게이트 V2 «재출제 간격 ≥ 8»)
 };
 
 export const MISSIONS = [
