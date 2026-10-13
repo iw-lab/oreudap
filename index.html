@@ -102,6 +102,17 @@
     <div class="feedback" id="feedback" aria-live="assertive"></div>
     <div class="streak-chip" id="streak-chip" hidden></div>
     <div class="run-clock" id="run-clock" hidden></div>
+    <!-- PC 전용 옆 패널(≥1024px) — 가운데 판은 그대로 두고 빈 양옆에 «지금 무엇을·어디까지»를 보여 준다. 누르는 것 없음 -->
+    <aside class="play-side left" aria-hidden="true">
+      <div class="ps-card"><span class="ps-k">과목</span><b id="ps-subject"></b></div>
+      <div class="ps-card"><span class="ps-k">모드</span><b id="ps-mode"></b></div>
+      <div class="ps-card"><span class="ps-k">최고 기록</span><b id="ps-best"></b><small id="ps-gap"></small></div>
+    </aside>
+    <aside class="play-side right" aria-hidden="true">
+      <div class="ps-card"><span class="ps-k">지금 구간</span><b id="ps-zone"></b><div class="ps-bar"><i id="ps-zone-bar"></i></div></div>
+      <div class="ps-card"><span class="ps-k">연속 정답</span><b id="ps-streak">0</b></div>
+      <div class="ps-card"><span class="ps-k">정답률</span><b id="ps-acc">-</b></div>
+    </aside>
     <!-- 아슬아슬 연출 — 화면 가장자리가 붉게 맥동한다. 포인터를 먹지 않게 pointer-events:none -->
     <div class="danger-vignette" id="danger" hidden></div>
   </section>

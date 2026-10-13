@@ -21,7 +21,7 @@ export function computeLayout(w, h) {
   //    작게 잡아 화면 아래쪽에 계단이 2~3개 쌓여 내려가도록 한다.
   const floorH = Math.max(bandH * 0.62, h * 0.185);
 
-  const cardTop = Math.max(40, h * 0.055);
+  const cardTop = Math.max(64, h * 0.06);   // v2: HUD 단추(44px)가 4개로 늘어 카드와 겹치지 않게
   const cardH = Math.max(76, Math.min(140, h * (landscape ? 0.185 : 0.15)));
   // 발판 밴드는 카드 바로 아래에 붙이고, 캐릭터는 딱 한 층 아래에 둔다.
   const bandY = Math.max(cardTop + cardH + bandH * 0.60, h * 0.40);

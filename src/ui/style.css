@@ -580,6 +580,21 @@ html:root {
 }
 @media (min-width: 1440px) { .home .home-wrap.gb-home { max-width: 1320px; } }
 
+/* PC 플레이 옆 패널 */
+.play-side { display: none; }
+@media (min-width: 1024px) and (min-height: 600px) {
+  .play-side { display: flex; flex-direction: column; gap: 12px; position: absolute; top: 120px; width: min(260px, calc((100vw - 600px) / 2 - 32px));
+    pointer-events: none !important; }
+  .play-side.left { left: 24px; }
+  .play-side.right { right: 24px; }
+  .ps-card { background: rgba(15, 24, 43, 0.72); border: 1px solid var(--line); border-radius: 16px; padding: 12px 14px; backdrop-filter: blur(4px); }
+  .ps-k { display: block; font-size: 13px; color: var(--ink-dim); margin-bottom: 4px; }
+  .ps-card b { font-size: 22px; color: var(--ink); }
+  .ps-card small { display: block; font-size: 13px; color: var(--accent); margin-top: 4px; }
+  .ps-bar { height: 8px; border-radius: 99px; background: rgba(255,255,255,.12); margin-top: 8px; overflow: hidden; }
+  .ps-bar i { display: block; height: 100%; width: 0; background: var(--accent); border-radius: 99px; transition: width .3s ease; }
+}
+
 /* ── 반응(주스) — kit/juice/juice.css 그대로(배너 자리만 HUD·발판 안 겹치게 조정) ── */
 /* @gb-juice-css v1 — kit/juice/juice.css. 게임 스타일시트 끝에 그대로 붙인다(CSP style-src 'self' 라 JS 가 <style> 을 넣지 않는다). */
 .gbj-layer{position:fixed;inset:0;pointer-events:none;z-index:40;overflow:hidden}

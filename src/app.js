@@ -21,7 +21,8 @@ import { configureHub } from './gb/hubnet.js';
 import { configureSchool, mountSchoolRank, refreshSchoolRank, gbGate, gbFinish, gbLeave, shortSchool } from './gb/gb-school.js';
 import { bindFullscreenButton } from './gb/gb-fullscreen.js';
 import { renderModeCards, setModeBest } from './gb/gb-modes.js';
-import { journeyOf, currentZone, nextZoneGap } from './core/journey.js';
+import { journeyOf, currentZone, nextZoneGap, zoneIndexFor } from './core/journey.js';
+import { ZONES } from './core/balance.js';
 import { planForNow, starsFor, recordFlag, todayStars, flagSummary } from './core/daily.js';
 import { applyPerId, masteryList, weakest, stampToday, weekView } from './core/mastery.js';
 
@@ -520,6 +521,8 @@ export class App {
       // 계단이 오를수록 음악이 조여든다 — 층 경계는 코어(balance)가 정하고 UI 는 받아 쓴다.
       this.sound.setIntensity(res.floor, tierIndexFor(res.floor), tierStartFor(res.floor));
       if (this.scene) this.scene.jumpTo(q.answerIndex, res.floor);
+      // 세계가 구간을 따라 바뀐다(숲 → 구름 → 우주 → 용암) — 여정 이름과 보이는 세계가 같다(D52)
+      if (this.scene) this.scene.setZone(ZONES[zoneIndexFor(res.floor)].id);
       this.markChoice(q.answerIndex, 'is-correct');
       // 착지 — 점프 트윈(220ms)이 끝나는 순간. 판이 그 사이 끝났으면 울리지 않는다.
       const runAt = this.core;
@@ -657,6 +660,25 @@ export class App {
     }
 
     this.updateDanger(c.lowStamina);
+    this.updateSide();
+  }
+
+  /** PC 옆 패널 — 화면이 좁으면 CSS 가 숨긴다(값은 늘 채운다) */
+  updateSide() {
+    const c = this.core;
+    if (!c) return;
+    const best = this.data.best[this.bestKey()] || 0;
+    $('#ps-subject').textContent = SUBJECTS[this.subject] ? SUBJECTS[this.subject].label : '';
+    $('#ps-mode').textContent = this.daily ? '오늘의 계단' : (MODES[this.mode] || MODES.classic).label;
+    $('#ps-best').textContent = `${Math.max(best, c.floor)}층`;
+    $('#ps-gap').textContent = c.floor > best ? '신기록 진행 중!' : (best ? `최고까지 ${best - c.floor}층` : '');
+    const zi = zoneIndexFor(Math.max(1, c.floor));
+    const z = ZONES[zi];
+    const from = zi === 0 ? 1 : ZONES[zi - 1].end + 1;
+    $('#ps-zone').textContent = z.name;
+    $('#ps-zone-bar').style.width = Number.isFinite(z.end) ? `${Math.min(100, Math.max(0, (c.floor - from + 1) / (z.end - from + 1) * 100)).toFixed(0)}%` : '100%';
+    $('#ps-streak').textContent = String(c.streak);
+    $('#ps-acc').textContent = c.stats.asked ? `${Math.round(c.accuracy * 100)}%` : '-';
   }
 
   /**

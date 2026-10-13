@@ -18,6 +18,14 @@ const POOL = 12;               // 발판 스프라이트 풀(지나온 층 최�
 const MILESTONE_EVERY = 10;    // 이 층마다 «금 발판» — 아래로 흘러가며 고도계 역할을 한다
 const DEPTH_FADE = 0.13;       // 한 층 내려갈 때마다 흐려지는 정도
 const DEPTH_SHRINK = 0.055;    // 한 층 내려갈 때마다 작아지는 정도(원근)
+const ZONE_FADE_MS = 1000;     // 구간이 바뀔 때 세계가 넘어가는 시간(한 곡만 울리는 BGM 처럼 «한 장만» 보이게 겹쳐 바꾼다)
+/** 구간별 떠다니는 것(중경) — 시차의 가운데 층. 'spark' 텍스처 하나에 색·움직임만 바꾼다 */
+const AMBIENT = {
+  forest: { tint: [0x9be37a, 0xd9f28b, 0xffe08a], speedY: { min: 18, max: 46 }, speedX: { min: -24, max: 24 }, scale: { start: 0.55, end: 0.2 }, alpha: { start: 0.8, end: 0 }, lifespan: 5200, freq: 360, fromTop: true },
+  cloud: { tint: [0xffffff, 0xe6f1ff], speedY: { min: 10, max: 22 }, speedX: { min: 8, max: 26 }, scale: { start: 1.3, end: 0.6 }, alpha: { start: 0.35, end: 0 }, lifespan: 6800, freq: 520, fromTop: true },
+  space: { tint: [0xffffff, 0xc9b8ff, 0x9fe8ff], speedY: { min: 4, max: 12 }, speedX: { min: -6, max: 6 }, scale: { start: 0.35, end: 0.05 }, alpha: { start: 1, end: 0 }, lifespan: 3600, freq: 160, fromTop: true },
+  lava: { tint: [0xffb347, 0xff7a3d, 0xffe08a], speedY: { min: -70, max: -30 }, speedX: { min: -16, max: 16 }, scale: { start: 0.5, end: 0.05 }, alpha: { start: 1, end: 0 }, lifespan: 3200, freq: 140, fromTop: false },
+};
 
 /** 발판 스프라이트의 «걸어 다니는 윗면»은 그림 위에서 이 비율만큼 내려온 자리다(원근 슬래브). */
 const PLAT_SURFACE = 0.28;
@@ -54,6 +62,10 @@ export class WorldScene extends Phaser.Scene {
 
     this.bgA = null;
     this.bgB = null;
+    this.bgC = null;        // 구간 전환용 겹침 한 쌍(새 세계가 위에서 서서히 나타난다)
+    this.bgD = null;
+    this.zone = data.zone || 'forest';
+    this.ambient = null;
     this.world = null;
     this.pool = [];         // 발판 스프라이트 전체
     this.free = [];         // 반납된 스프라이트
@@ -102,13 +114,16 @@ export class WorldScene extends Phaser.Scene {
 
     const themePlatform = this.manifest.themePlatform || {};
     const platKey = `platform-${themePlatform[this.theme] || 'stone'}`;
-    const bgKey = `bg-${this.theme}`;
+    const bgKey = this.bgKeyFor(this.zone);
 
     this.bgA = this.add.image(0, 0, bgKey).setOrigin(0, 0);
     this.bgB = this.add.image(0, 0, bgKey).setOrigin(0, 0);
     // 🔴 위쪽 타일을 상하 반전해 두면 이음매의 두 줄이 «같은 픽셀»이 된다 —
     //    하늘 그라데이션은 위아래가 다르므로 반전 없이 이어 붙이면 층마다 색이 튄다.
     this.bgA.setFlipY(true);
+    this.bgC = this.add.image(0, 0, bgKey).setOrigin(0, 0).setFlipY(true).setVisible(false);
+    this.bgD = this.add.image(0, 0, bgKey).setOrigin(0, 0).setVisible(false);
+    this.startAmbient(this.zone);
 
     // 월드 컨테이너 — 이 컨테이너의 y 를 내리는 것이 곧 «올라가는 것»이다.
     this.world = this.add.container(0, 0);
@@ -185,11 +200,13 @@ export class WorldScene extends Phaser.Scene {
     this.layout = computeLayout(w, h);
 
     const scale = Math.max(w / BG_W, h / BG_H);
-    for (const bg of [this.bgA, this.bgB]) bg.setScale(scale);
+    for (const bg of [this.bgA, this.bgB, this.bgC, this.bgD]) if (bg) bg.setScale(scale);
     this.bgH = BG_H * scale;
     this.bgX = (w - BG_W * scale) / 2;
     this.updateBackground();
 
+    // 떠다니는 것의 범위도 화면 크기를 따른다
+    if (this.ambient && (this._ambW !== w || this._ambH !== h)) { this._ambW = w; this._ambH = h; this.startAmbient(this.zone); }
     this.cols = columns(this.layout, this.branches);
     this.world.setPosition(0, this.layout.charY);
 
@@ -211,6 +228,53 @@ export class WorldScene extends Phaser.Scene {
     const off = ((this.scrollY % this.bgH) + this.bgH) % this.bgH;
     this.bgA.setPosition(this.bgX, off - this.bgH);
     this.bgB.setPosition(this.bgX, off);
+    if (this.bgC) { this.bgC.setPosition(this.bgX, off - this.bgH); this.bgD.setPosition(this.bgX, off); }
+  }
+
+  /** 구간 → 배경 키. 구간 그림이 없으면(옛 매니페스트) 고른 하늘 테마로 */
+  bgKeyFor(zone) {
+    const k = `zone-${zone}`;
+    return this.textures.exists(k) ? k : `bg-${this.theme}`;
+  }
+
+  /**
+   * 세계 바꾸기 — 여정 구간이 바뀌는 층(21·51·91)에서 부른다.
+   * 🔴 두 장을 «겹쳐 둔 채» 멈추지 않는다 — 새 장이 다 나타나면 아래 장을 바꿔 끼우고 겹침을 숨긴다.
+   */
+  setZone(zone, { instant = false } = {}) {
+    if (!zone || zone === this.zone || !this.bgA) { this.zone = zone || this.zone; return; }
+    this.zone = zone;
+    const key = this.bgKeyFor(zone);
+    this.startAmbient(zone);
+    if (instant || this.reduced || !this.textures.exists(key)) {
+      for (const bg of [this.bgA, this.bgB]) bg.setTexture(key);
+      this.bgC.setVisible(false); this.bgD.setVisible(false);
+      return;
+    }
+    for (const bg of [this.bgC, this.bgD]) bg.setTexture(key).setVisible(true).setAlpha(0);
+    this.updateBackground();
+    this.track(this.tweens.add({
+      targets: [this.bgC, this.bgD], alpha: 1, duration: ZONE_FADE_MS, ease: 'Sine.easeInOut',
+      onComplete: () => {
+        for (const bg of [this.bgA, this.bgB]) bg.setTexture(key);
+        this.bgC.setVisible(false); this.bgD.setVisible(false);
+      },
+    }));
+  }
+
+  /** 중경 — 구간마다 떠다니는 것(잎·구름 조각·별·불씨). 배경보다 앞, 발판보다 뒤 */
+  startAmbient(zone) {
+    const a = AMBIENT[zone];
+    if (this.ambient) { this.ambient.destroy(); this.ambient = null; }
+    if (!a || this.reduced) return;
+    const w = this.scale.width || 400, h = this.scale.height || 700;
+    this.ambient = this.add.particles(0, 0, 'spark', {
+      x: { min: 0, max: w }, y: a.fromTop ? { min: -20, max: h * 0.6 } : { min: h * 0.5, max: h + 20 },
+      speedY: a.speedY, speedX: a.speedX, scale: a.scale, alpha: a.alpha, tint: a.tint,
+      lifespan: a.lifespan, frequency: a.freq, quantity: 1, blendMode: zone === 'cloud' ? 'NORMAL' : 'ADD',
+    });
+    // 배경(bgA~D) 바로 위 = 월드 컨테이너 아래
+    if (this.world) this.children.moveBelow(this.ambient, this.world);
   }
 
   /** 현재 문항의 갈래 수에 맞춰 «한 층 위» 발판 행을 세운다 */
@@ -415,9 +479,9 @@ export class WorldScene extends Phaser.Scene {
 
   setTheme(theme) {
     this.theme = theme;
-    const key = `bg-${theme}`;
-    if (!this.textures.exists(key)) return;
-    for (const bg of [this.bgA, this.bgB]) if (bg) bg.setTexture(key);
+    // v2: 배경은 여정 구간이 정한다(D52). 구간 그림이 없을 때만 테마 하늘을 쓴다.
+    const key = this.bgKeyFor(this.zone);
+    if (this.textures.exists(key)) for (const bg of [this.bgA, this.bgB]) if (bg) bg.setTexture(key);
     const platKey = `platform-${(this.manifest.themePlatform || {})[theme] || 'stone'}`;
     if (this.textures.exists(platKey)) for (const p of this.pool) p.setTexture(platKey);
     this.applyLayout();
@@ -427,6 +491,7 @@ export class WorldScene extends Phaser.Scene {
   resetWorld() {
     this.stopAllMotion();
     this.finished = false;
+    this.setZone('forest', { instant: true });
     this.scrollY = 0;
     this.targetScrollY = 0;
     this.charCol = 0;
