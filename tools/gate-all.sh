@@ -54,6 +54,7 @@ run "영어 발음 (D32)"                  node tools/qa-voice.mjs --dir dist
 run "모드 화면 (D34)"                  node tools/qa-modes.mjs --dir dist
 run "놀이 방법 (D35)"                  node tools/qa-howto.mjs --dir dist
 run "재방문·재미 (D37~D40)"     node tools/qa-retention.mjs --dir dist
+run "세계·캐릭터 (D51·D52)"          node tools/qa-world.mjs --dir dist
 run "올라가는 느낌 (D28)"             node tools/qa-climb.mjs --dir dist
 run "성능·번들 (D25)"                 node tools/qa-perf.mjs --dir dist
 
