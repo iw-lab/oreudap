@@ -1,0 +1,4 @@
+오르답 v2 완료 2026-10-13 — 커밋 6522247 · https://oreudap.vercel.app
+gate-all 4회차: 31단계 중 30 PASS + BGM(D31) 시험 경합 수정 후 단독 PASS · 성능 P95 48.3ms(≤68)
+배포 실측: qa-live 10클릭=10층 · gate-baseline --expect-hub PASS · 낭독 지연 실서버 23/24 즉시
+phase.mjs require 0 1 2 3 4 5 → ✅
