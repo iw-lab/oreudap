@@ -76,7 +76,8 @@
     }
    },
    "env": {
-    "BL_CROTCH_MIN": "0.07"
+    "BL_CROTCH_MIN": "0.07",
+    "BL_JUMP_MIN": "0.025"
    }
   },
   {
@@ -115,7 +116,7 @@
     }
    },
    "env": {
-    "BL_CROTCH_MIN": "0.07"
+    "BL_CROTCH_MIN": "0.02"
    }
   },
   {
@@ -193,7 +194,8 @@
     }
    },
    "env": {
-    "BL_CROTCH_MIN": "0.07"
+    "BL_CROTCH_MIN": "0.07",
+    "BL_HAND_UP": "0.05"
    }
   },
   {
@@ -232,7 +234,8 @@
     }
    },
    "env": {
-    "BL_CROTCH_MIN": "0.07"
+    "BL_CROTCH_MIN": "0.07",
+    "BL_HAND_UP": "0.05"
    }
   },
   {

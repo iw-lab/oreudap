@@ -1,0 +1,18 @@
+{
+ "rabbit": {
+  "ok": false,
+  "shape": "human",
+  "actions": [
+   "idle",
+   "jump",
+   "cheer",
+   "sad"
+  ],
+  "dir": "S",
+  "src": "game-assets-src/rig/src/rabbit.png",
+  "ts": "2026-10-13T11:03:33",
+  "srcSha": "ba99842853cd3b4f",
+  "why": "뼈대(creature) 게이트 FAIL",
+  "log": "\n[bl] 어깨 웨이트 섞기 10회 · 띠 정점 1414\n[bl] 머리 폭 ±0.61 · 팔을 따르는 머리 정점 0\n[bl] 팔 내림 L: 처음 82° · 손 0.267 m 내려감(기대 0.270 m)\n[bl] 팔 내림 R: 처음 82° · 손 0.266 m 내려감(기대 0.270 m)\n[bl] T 포즈 휴지 — 절차 액션에서 팔 내림 L -62° · R -62°\n[bl] 리그 rig.glb — 뼈 14 · 액션 ['idle'] · 정점 4725 · 1087KB\n❌ [gate] 랜드마크 순서가 사람형이 아니다 {'H': np.float64(1.8), 'crotch': np.float64(0.191), 'shoulder': np.float64(0.636), 'neck': np.float64(0.833), 'legX': 0.198, 'shoulderX': 0.233, 'handL': [0.595, -0.149, 0.663], 'handR': [-0.595, -0.176, 0.661]}\n❌ [gate] FAIL 1건 — 리포트 /Users/sim-insu/Documents/dev/muhan/game-assets-src/rig/work/rabbit/rig.json\n"
+ }
+}

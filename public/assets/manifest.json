@@ -43,20 +43,6 @@
       "w": 384,
       "h": 384
     },
-    "char-cat": {
-      "file": "char-cat.webp",
-      "bytes": 28032,
-      "sha1": "cdabc4425fde",
-      "w": 384,
-      "h": 384
-    },
-    "char-cat-jump": {
-      "file": "char-cat-jump.webp",
-      "bytes": 31788,
-      "sha1": "058c9b431fab",
-      "w": 384,
-      "h": 384
-    },
     "char-bear": {
       "file": "char-bear.webp",
       "bytes": 19500,
@@ -269,8 +255,23 @@
       "m4a": "wrong.m4a"
     }
   },
-  "rig": {},
+  "rig": {
+    "cat": {
+      "png": "cat.png",
+      "json": "cat.json",
+      "bytes": 1209890,
+      "sha1": "a4802219e65f",
+      "size": [
+        3072,
+        1024
+      ],
+      "frame": [
+        256,
+        256
+      ]
+    }
+  },
   "audioBytes": 2439616,
   "eagerAudioBytes": 884508,
-  "totalBytes": 802836
+  "totalBytes": 743016
 }
