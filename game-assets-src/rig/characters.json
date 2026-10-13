@@ -1,0 +1,258 @@
+{
+ "_": "오르답 v2 — 캐릭터 = Firefly 3D + 뼈대 + CMU 모캡(점프 02_04 · 만세 79_69 · 시무룩 79_71). 2026-10-13. 굽기 = python3 ~/.claude/skills/game-builder/tools/rig-characters.py → python3 tools/process-assets.py · cheer·sad 구간은 티샷 아일랜드 골퍼에서 검증된 값",
+ "characters": [
+  {
+   "id": "fox",
+   "src": "game-assets-src/rig/src/fox.png",
+   "shape": "human",
+   "actions": [
+    "idle",
+    "jump",
+    "cheer",
+    "sad"
+   ],
+   "dir": "S",
+   "size": 256,
+   "frames": 12,
+   "elev": 12,
+   "out": "public/assets/rig",
+   "replaces": [
+    "public/assets/images/char-fox.webp",
+    "public/assets/images/char-fox-jump.webp"
+   ],
+   "mocap": {
+    "jump": {
+     "bvh": "~/ai/mocap/02_04.bvh",
+     "auto": "jump"
+    },
+    "cheer": {
+     "bvh": "~/ai/mocap/79_69.bvh",
+     "start": 95,
+     "end": 205
+    },
+    "sad": {
+     "bvh": "~/ai/mocap/79_71.bvh",
+     "start": 250,
+     "end": 330
+    }
+   }
+  },
+  {
+   "id": "rabbit",
+   "src": "game-assets-src/rig/src/rabbit.png",
+   "shape": "human",
+   "actions": [
+    "idle",
+    "jump",
+    "cheer",
+    "sad"
+   ],
+   "dir": "S",
+   "size": 256,
+   "frames": 12,
+   "elev": 12,
+   "out": "public/assets/rig",
+   "replaces": [
+    "public/assets/images/char-rabbit.webp",
+    "public/assets/images/char-rabbit-jump.webp"
+   ],
+   "mocap": {
+    "jump": {
+     "bvh": "~/ai/mocap/02_04.bvh",
+     "auto": "jump"
+    },
+    "cheer": {
+     "bvh": "~/ai/mocap/79_69.bvh",
+     "start": 95,
+     "end": 205
+    },
+    "sad": {
+     "bvh": "~/ai/mocap/79_71.bvh",
+     "start": 250,
+     "end": 330
+    }
+   }
+  },
+  {
+   "id": "penguin",
+   "src": "game-assets-src/rig/src/penguin.png",
+   "shape": "human",
+   "actions": [
+    "idle",
+    "jump",
+    "cheer",
+    "sad"
+   ],
+   "dir": "S",
+   "size": 256,
+   "frames": 12,
+   "elev": 12,
+   "out": "public/assets/rig",
+   "replaces": [
+    "public/assets/images/char-penguin.webp",
+    "public/assets/images/char-penguin-jump.webp"
+   ],
+   "mocap": {
+    "jump": {
+     "bvh": "~/ai/mocap/02_04.bvh",
+     "auto": "jump"
+    },
+    "cheer": {
+     "bvh": "~/ai/mocap/79_69.bvh",
+     "start": 95,
+     "end": 205
+    },
+    "sad": {
+     "bvh": "~/ai/mocap/79_71.bvh",
+     "start": 250,
+     "end": 330
+    }
+   }
+  },
+  {
+   "id": "cat",
+   "src": "game-assets-src/rig/src/cat.png",
+   "shape": "human",
+   "actions": [
+    "idle",
+    "jump",
+    "cheer",
+    "sad"
+   ],
+   "dir": "S",
+   "size": 256,
+   "frames": 12,
+   "elev": 12,
+   "out": "public/assets/rig",
+   "replaces": [
+    "public/assets/images/char-cat.webp",
+    "public/assets/images/char-cat-jump.webp"
+   ],
+   "mocap": {
+    "jump": {
+     "bvh": "~/ai/mocap/02_04.bvh",
+     "auto": "jump"
+    },
+    "cheer": {
+     "bvh": "~/ai/mocap/79_69.bvh",
+     "start": 95,
+     "end": 205
+    },
+    "sad": {
+     "bvh": "~/ai/mocap/79_71.bvh",
+     "start": 250,
+     "end": 330
+    }
+   }
+  },
+  {
+   "id": "bear",
+   "src": "game-assets-src/rig/src/bear.png",
+   "shape": "human",
+   "actions": [
+    "idle",
+    "jump",
+    "cheer",
+    "sad"
+   ],
+   "dir": "S",
+   "size": 256,
+   "frames": 12,
+   "elev": 12,
+   "out": "public/assets/rig",
+   "replaces": [
+    "public/assets/images/char-bear.webp",
+    "public/assets/images/char-bear-jump.webp"
+   ],
+   "mocap": {
+    "jump": {
+     "bvh": "~/ai/mocap/02_04.bvh",
+     "auto": "jump"
+    },
+    "cheer": {
+     "bvh": "~/ai/mocap/79_69.bvh",
+     "start": 95,
+     "end": 205
+    },
+    "sad": {
+     "bvh": "~/ai/mocap/79_71.bvh",
+     "start": 250,
+     "end": 330
+    }
+   }
+  },
+  {
+   "id": "owl",
+   "src": "game-assets-src/rig/src/owl.png",
+   "shape": "human",
+   "actions": [
+    "idle",
+    "jump",
+    "cheer",
+    "sad"
+   ],
+   "dir": "S",
+   "size": 256,
+   "frames": 12,
+   "elev": 12,
+   "out": "public/assets/rig",
+   "replaces": [
+    "public/assets/images/char-owl.webp",
+    "public/assets/images/char-owl-jump.webp"
+   ],
+   "mocap": {
+    "jump": {
+     "bvh": "~/ai/mocap/02_04.bvh",
+     "auto": "jump"
+    },
+    "cheer": {
+     "bvh": "~/ai/mocap/79_69.bvh",
+     "start": 95,
+     "end": 205
+    },
+    "sad": {
+     "bvh": "~/ai/mocap/79_71.bvh",
+     "start": 250,
+     "end": 330
+    }
+   }
+  },
+  {
+   "id": "dragon",
+   "src": "game-assets-src/rig/src/dragon.png",
+   "shape": "human",
+   "actions": [
+    "idle",
+    "jump",
+    "cheer",
+    "sad"
+   ],
+   "dir": "S",
+   "size": 256,
+   "frames": 12,
+   "elev": 12,
+   "out": "public/assets/rig",
+   "replaces": [
+    "public/assets/images/char-dragon.webp",
+    "public/assets/images/char-dragon-jump.webp"
+   ],
+   "mocap": {
+    "jump": {
+     "bvh": "~/ai/mocap/02_04.bvh",
+     "auto": "jump"
+    },
+    "cheer": {
+     "bvh": "~/ai/mocap/79_69.bvh",
+     "start": 95,
+     "end": 205
+    },
+    "sad": {
+     "bvh": "~/ai/mocap/79_71.bvh",
+     "start": 250,
+     "end": 330
+    }
+   }
+  }
+ ],
+ "exempt": {}
+}
