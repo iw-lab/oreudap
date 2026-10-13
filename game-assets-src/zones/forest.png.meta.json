@@ -1,0 +1,14 @@
+{
+ "prompt": "Generate an image (tall portrait 9:16 image): vertical portrait mobile game background, looking up through a tall magical forest: giant tree trunks on the left and right edges, leafy canopy, sunbeams and floating leaves, warm green and gold light, the center of the image is open empty space with no objects, no ground and no floor at the top or bottom edge, soft painterly cartoon game background, g",
+ "out": "/Users/sim-insu/Documents/dev/muhan/game-assets-src/zones/forest.png",
+ "t0": 1791857506.512734,
+ "w": 941,
+ "h": 1672,
+ "src": "blob:https://chatgpt.com/23269d49-f768-4c3d-aba1-1546c312612a",
+ "bytes": "data-uri(data:image/png;base64)",
+ "verify": "941x1672 · 3,316,774바이트",
+ "elapsed_s": 76.4,
+ "conversation": "https://chatgpt.com/c/6acd9119-6030-83e8-ac15-a8e2b75843d2",
+ "served_by": "chatgpt-web(모델 미노출 — 서버가 정한다)",
+ "attempts": 1
+}

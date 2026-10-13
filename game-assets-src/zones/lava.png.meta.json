@@ -1,0 +1,14 @@
+{
+ "prompt": "Generate an image (tall portrait 9:16 image): vertical portrait mobile game background, inside a volcanic cavern going upward, dark rock walls on the left and right edges, glowing orange lava falls and embers floating up, warm red-orange glow, the center of the image is open empty space with no objects, no ground and no floor at the top or bottom edge, soft painterly cartoon game background, gentl",
+ "out": "/Users/sim-insu/Documents/dev/muhan/game-assets-src/zones/lava.png",
+ "t0": 1791857784.561832,
+ "w": 941,
+ "h": 1672,
+ "src": "blob:https://chatgpt.com/0b4f96e4-f497-4a19-8692-ff7947e2de4c",
+ "bytes": "data-uri(data:image/png;base64)",
+ "verify": "941x1672 · 2,543,777바이트",
+ "elapsed_s": 72.2,
+ "conversation": "https://chatgpt.com/c/6acd93ed-4c14-83ee-8edb-0ed6ec614a83",
+ "served_by": "chatgpt-web(모델 미노출 — 서버가 정한다)",
+ "attempts": 1
+}

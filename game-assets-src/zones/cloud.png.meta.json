@@ -1,0 +1,14 @@
+{
+ "prompt": "Generate an image (tall portrait 9:16 image): vertical portrait mobile game background, high in the sky among fluffy pastel clouds, soft blue sky, distant floating cloud islands, gentle sunlight, a few birds far away, the center of the image is open empty space with no objects, no ground and no floor at the top or bottom edge, soft painterly cartoon game background, gentle gradients, clean shapes,",
+ "out": "/Users/sim-insu/Documents/dev/muhan/game-assets-src/zones/cloud.png",
+ "t0": 1791857624.4825332,
+ "w": 941,
+ "h": 1672,
+ "src": "blob:https://chatgpt.com/f1caceba-df97-4769-af0d-2e708bb48873",
+ "bytes": "data-uri(data:image/png;base64)",
+ "verify": "941x1672 · 2,566,959바이트",
+ "elapsed_s": 67.8,
+ "conversation": "https://chatgpt.com/c/6acd93ed-4c14-83ee-8edb-0ed6ec614a83",
+ "served_by": "chatgpt-web(모델 미노출 — 서버가 정한다)",
+ "attempts": 1
+}

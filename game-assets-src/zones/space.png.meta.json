@@ -1,0 +1,14 @@
+{
+ "prompt": "Generate an image (tall portrait 9:16 image): vertical portrait mobile game background, deep outer space, purple and navy nebula, many small twinkling stars, a few colorful distant planets and a ringed planet near the edges, the center of the image is open empty space with no objects, no ground and no floor at the top or bottom edge, soft painterly cartoon game background, gentle gradients, clean ",
+ "out": "/Users/sim-insu/Documents/dev/muhan/game-assets-src/zones/space.png",
+ "t0": 1791857700.3220422,
+ "w": 941,
+ "h": 1672,
+ "src": "blob:https://chatgpt.com/7399740b-172b-41c6-921b-6fdb68045f02",
+ "bytes": "data-uri(data:image/png;base64)",
+ "verify": "941x1672 · 3,145,925바이트",
+ "elapsed_s": 76.2,
+ "conversation": "https://chatgpt.com/c/6acd93ed-4c14-83ee-8edb-0ed6ec614a83",
+ "served_by": "chatgpt-web(모델 미노출 — 서버가 정한다)",
+ "attempts": 1
+}

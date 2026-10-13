@@ -26,5 +26,9 @@
  "dragon.png": {
   "engine": "gptweb",
   "ts": 1791857857
+ },
+ "fox-v2.png": {
+  "engine": "gptweb",
+  "ts": 1791861397
  }
 }

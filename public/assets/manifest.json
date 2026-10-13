@@ -1,34 +1,6 @@
 {
   "version": 1,
   "images": {
-    "char-fox": {
-      "file": "char-fox.webp",
-      "bytes": 25730,
-      "sha1": "8006556160a8",
-      "w": 384,
-      "h": 384
-    },
-    "char-fox-jump": {
-      "file": "char-fox-jump.webp",
-      "bytes": 26748,
-      "sha1": "ae30df4d0996",
-      "w": 384,
-      "h": 384
-    },
-    "char-dragon": {
-      "file": "char-dragon.webp",
-      "bytes": 23282,
-      "sha1": "6b0566e53354",
-      "w": 384,
-      "h": 384
-    },
-    "char-dragon-jump": {
-      "file": "char-dragon-jump.webp",
-      "bytes": 25216,
-      "sha1": "bef66cf1e6a5",
-      "w": 384,
-      "h": 384
-    },
     "platform-stone": {
       "file": "platform-stone.webp",
       "bytes": 18566,
@@ -200,11 +172,25 @@
     }
   },
   "rig": {
+    "fox": {
+      "png": "fox.png",
+      "json": "fox.json",
+      "bytes": 171397,
+      "sha1": "ac5ba296dc4b",
+      "size": [
+        3072,
+        1024
+      ],
+      "frame": [
+        256,
+        256
+      ]
+    },
     "rabbit": {
       "png": "rabbit.png",
       "json": "rabbit.json",
-      "bytes": 1210848,
-      "sha1": "90fa96b42097",
+      "bytes": 193117,
+      "sha1": "4a381e831180",
       "size": [
         3072,
         1024
@@ -217,8 +203,8 @@
     "penguin": {
       "png": "penguin.png",
       "json": "penguin.json",
-      "bytes": 1326226,
-      "sha1": "0cfc5c4db91c",
+      "bytes": 220997,
+      "sha1": "d24ab064cb93",
       "size": [
         3072,
         1024
@@ -231,8 +217,8 @@
     "cat": {
       "png": "cat.png",
       "json": "cat.json",
-      "bytes": 1209890,
-      "sha1": "a4802219e65f",
+      "bytes": 207200,
+      "sha1": "67a99ebe7cf7",
       "size": [
         3072,
         1024
@@ -245,8 +231,8 @@
     "bear": {
       "png": "bear.png",
       "json": "bear.json",
-      "bytes": 1548985,
-      "sha1": "911a38acf453",
+      "bytes": 243134,
+      "sha1": "1c25929f1c3f",
       "size": [
         3072,
         1024
@@ -259,8 +245,22 @@
     "owl": {
       "png": "owl.png",
       "json": "owl.json",
-      "bytes": 1525920,
-      "sha1": "03d3b645ba6a",
+      "bytes": 242713,
+      "sha1": "395398d62b9b",
+      "size": [
+        3072,
+        1024
+      ],
+      "frame": [
+        256,
+        256
+      ]
+    },
+    "dragon": {
+      "png": "dragon.png",
+      "json": "dragon.json",
+      "bytes": 215872,
+      "sha1": "a61d9001fff4",
       "size": [
         3072,
         1024
@@ -273,5 +273,5 @@
   },
   "audioBytes": 2439616,
   "eagerAudioBytes": 884508,
-  "totalBytes": 565352
+  "totalBytes": 464376
 }

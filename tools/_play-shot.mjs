@@ -11,7 +11,8 @@ for (const [n, vp] of [['m', { width: 390, height: 844 }], ['pc', { width: 1440,
   await p.click('#btn-play');
   await p.waitForTimeout(1500);
   const how = await p.$('#btn-how-start'); if (how && await how.isVisible()) await how.click();
-  for (let i = 0; i < 24; i++) {
+  if (process.env.LAVA) await p.evaluate(() => { window.__SMOKE__.app.core.floor = 92; window.__SMOKE__.app.scene.setZone("lava", { instant: true }); });
+  for (let i = 0; i < 6; i++) {
     await p.evaluate(() => { const a = window.__SMOKE__.app; const q = a.core && a.core.question; if (q && !a.core.answered) a.press(q.answerIndex); });
     await p.waitForTimeout(420);
   }

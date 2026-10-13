@@ -1,0 +1,17 @@
+{
+ "prompt": "Generate an image (square 1:1 image): orange fox with white chest, small white-tipped tail hanging straight down behind the legs so it does not stick out to the sides, no backpack, no bag, no straps, front view, full body with both feet visible, single isolated character, centered, about 10% margin on every side, standing in a T-pose, both arms stretched straight out horizontally to the sides, leg",
+ "out": "/Users/sim-insu/Documents/dev/muhan/game-assets-src/rig/src/fox-v2.png",
+ "t0": 1791861316.78865,
+ "refs": [
+  "/Users/sim-insu/Documents/dev/muhan/game-assets-src/rig/src/fox.png"
+ ],
+ "w": 1254,
+ "h": 1254,
+ "src": "blob:https://chatgpt.com/7d0fed0f-67fa-405c-a6a8-babb68d370eb",
+ "bytes": "data-uri(data:image/png;base64)",
+ "verify": "1254x1254 · 2,010,241바이트",
+ "elapsed_s": 80.0,
+ "conversation": "https://chatgpt.com/c/6acda259-ae00-83ee-8ab4-d68f6c34b7cc",
+ "served_by": "chatgpt-web(모델 미노출 — 서버가 정한다)",
+ "attempts": 1
+}

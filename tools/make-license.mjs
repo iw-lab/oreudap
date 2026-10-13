@@ -14,6 +14,14 @@ const SOURCES = {
     license: 'self-generated',
     source: 'Meta AI 이미지 생성 → 배경 제거·리사이즈(tools/process-assets.py). 오르답 제작진이 이 게임을 위해 생성.',
   },
+  zone: {
+    license: 'self-generated',
+    source: 'GPT 웹앱 이미지 생성(game-builder gb-image.sh · 원장 game-assets-src/zones/_engine.json) → 720×1280 webp(tools/process-assets.py).',
+  },
+  rig: {
+    license: 'self-generated',
+    source: 'GPT 웹앱 T포즈 원화(game-assets-src/rig/src/_engine.json) → Adobe Firefly 3D → Blender 뼈대·CMU 모션캡처(공개) → 스프라이트 아틀라스(game-builder rig-characters.py).',
+  },
   sfx: {
     license: 'self-generated',
     source: 'game-builder gen-sfx.py 오프라인 결정론 렌더(numpy) → loudnorm·ogg/m4a 변환.',
@@ -35,7 +43,14 @@ const SOURCES = {
 const entries = [];
 for (const f of fs.readdirSync(path.join(DEST, 'images')).sort()) {
   if (!/\.(webp|png|svg)$/.test(f)) continue;
-  entries.push({ file: `images/${f}`, ...SOURCES.image, date: '2026-09-04' });
+  entries.push(f.startsWith('zone-') ? { file: `images/${f}`, ...SOURCES.zone, date: '2026-10-13' }
+    : { file: `images/${f}`, ...SOURCES.image, date: '2026-09-04' });
+}
+if (fs.existsSync(path.join(DEST, 'rig'))) {
+  for (const f of fs.readdirSync(path.join(DEST, 'rig')).sort()) {
+    if (!/\.(png|json)$/.test(f)) continue;
+    entries.push({ file: `rig/${f}`, ...SOURCES.rig, date: '2026-10-13' });
+  }
 }
 for (const f of fs.readdirSync(path.join(DEST, 'audio')).sort()) {
   if (!/\.(ogg|m4a)$/.test(f)) continue;

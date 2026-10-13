@@ -27,90 +27,6 @@
       "date": "2026-09-04"
     },
     {
-      "file": "images/char-bear-jump.webp",
-      "license": "self-generated",
-      "source": "Meta AI 이미지 생성 → 배경 제거·리사이즈(tools/process-assets.py). 오르답 제작진이 이 게임을 위해 생성.",
-      "date": "2026-09-04"
-    },
-    {
-      "file": "images/char-bear.webp",
-      "license": "self-generated",
-      "source": "Meta AI 이미지 생성 → 배경 제거·리사이즈(tools/process-assets.py). 오르답 제작진이 이 게임을 위해 생성.",
-      "date": "2026-09-04"
-    },
-    {
-      "file": "images/char-cat-jump.webp",
-      "license": "self-generated",
-      "source": "Meta AI 이미지 생성 → 배경 제거·리사이즈(tools/process-assets.py). 오르답 제작진이 이 게임을 위해 생성.",
-      "date": "2026-09-04"
-    },
-    {
-      "file": "images/char-cat.webp",
-      "license": "self-generated",
-      "source": "Meta AI 이미지 생성 → 배경 제거·리사이즈(tools/process-assets.py). 오르답 제작진이 이 게임을 위해 생성.",
-      "date": "2026-09-04"
-    },
-    {
-      "file": "images/char-dragon-jump.webp",
-      "license": "self-generated",
-      "source": "Meta AI 이미지 생성 → 배경 제거·리사이즈(tools/process-assets.py). 오르답 제작진이 이 게임을 위해 생성.",
-      "date": "2026-09-04"
-    },
-    {
-      "file": "images/char-dragon.webp",
-      "license": "self-generated",
-      "source": "Meta AI 이미지 생성 → 배경 제거·리사이즈(tools/process-assets.py). 오르답 제작진이 이 게임을 위해 생성.",
-      "date": "2026-09-04"
-    },
-    {
-      "file": "images/char-fox-jump.webp",
-      "license": "self-generated",
-      "source": "Meta AI 이미지 생성 → 배경 제거·리사이즈(tools/process-assets.py). 오르답 제작진이 이 게임을 위해 생성.",
-      "date": "2026-09-04"
-    },
-    {
-      "file": "images/char-fox.webp",
-      "license": "self-generated",
-      "source": "Meta AI 이미지 생성 → 배경 제거·리사이즈(tools/process-assets.py). 오르답 제작진이 이 게임을 위해 생성.",
-      "date": "2026-09-04"
-    },
-    {
-      "file": "images/char-owl-jump.webp",
-      "license": "self-generated",
-      "source": "Meta AI 이미지 생성 → 배경 제거·리사이즈(tools/process-assets.py). 오르답 제작진이 이 게임을 위해 생성.",
-      "date": "2026-09-04"
-    },
-    {
-      "file": "images/char-owl.webp",
-      "license": "self-generated",
-      "source": "Meta AI 이미지 생성 → 배경 제거·리사이즈(tools/process-assets.py). 오르답 제작진이 이 게임을 위해 생성.",
-      "date": "2026-09-04"
-    },
-    {
-      "file": "images/char-penguin-jump.webp",
-      "license": "self-generated",
-      "source": "Meta AI 이미지 생성 → 배경 제거·리사이즈(tools/process-assets.py). 오르답 제작진이 이 게임을 위해 생성.",
-      "date": "2026-09-04"
-    },
-    {
-      "file": "images/char-penguin.webp",
-      "license": "self-generated",
-      "source": "Meta AI 이미지 생성 → 배경 제거·리사이즈(tools/process-assets.py). 오르답 제작진이 이 게임을 위해 생성.",
-      "date": "2026-09-04"
-    },
-    {
-      "file": "images/char-rabbit-jump.webp",
-      "license": "self-generated",
-      "source": "Meta AI 이미지 생성 → 배경 제거·리사이즈(tools/process-assets.py). 오르답 제작진이 이 게임을 위해 생성.",
-      "date": "2026-09-04"
-    },
-    {
-      "file": "images/char-rabbit.webp",
-      "license": "self-generated",
-      "source": "Meta AI 이미지 생성 → 배경 제거·리사이즈(tools/process-assets.py). 오르답 제작진이 이 게임을 위해 생성.",
-      "date": "2026-09-04"
-    },
-    {
       "file": "images/platform-cloud.webp",
       "license": "self-generated",
       "source": "Meta AI 이미지 생성 → 배경 제거·리사이즈(tools/process-assets.py). 오르답 제작진이 이 게임을 위해 생성.",
@@ -133,6 +49,114 @@
       "license": "self-generated",
       "source": "Meta AI 이미지 생성 → 배경 제거·리사이즈(tools/process-assets.py). 오르답 제작진이 이 게임을 위해 생성.",
       "date": "2026-09-04"
+    },
+    {
+      "file": "images/zone-cloud.webp",
+      "license": "self-generated",
+      "source": "GPT 웹앱 이미지 생성(game-builder gb-image.sh · 원장 game-assets-src/zones/_engine.json) → 720×1280 webp(tools/process-assets.py).",
+      "date": "2026-10-13"
+    },
+    {
+      "file": "images/zone-forest.webp",
+      "license": "self-generated",
+      "source": "GPT 웹앱 이미지 생성(game-builder gb-image.sh · 원장 game-assets-src/zones/_engine.json) → 720×1280 webp(tools/process-assets.py).",
+      "date": "2026-10-13"
+    },
+    {
+      "file": "images/zone-lava.webp",
+      "license": "self-generated",
+      "source": "GPT 웹앱 이미지 생성(game-builder gb-image.sh · 원장 game-assets-src/zones/_engine.json) → 720×1280 webp(tools/process-assets.py).",
+      "date": "2026-10-13"
+    },
+    {
+      "file": "images/zone-space.webp",
+      "license": "self-generated",
+      "source": "GPT 웹앱 이미지 생성(game-builder gb-image.sh · 원장 game-assets-src/zones/_engine.json) → 720×1280 webp(tools/process-assets.py).",
+      "date": "2026-10-13"
+    },
+    {
+      "file": "rig/bear.json",
+      "license": "self-generated",
+      "source": "GPT 웹앱 T포즈 원화(game-assets-src/rig/src/_engine.json) → Adobe Firefly 3D → Blender 뼈대·CMU 모션캡처(공개) → 스프라이트 아틀라스(game-builder rig-characters.py).",
+      "date": "2026-10-13"
+    },
+    {
+      "file": "rig/bear.png",
+      "license": "self-generated",
+      "source": "GPT 웹앱 T포즈 원화(game-assets-src/rig/src/_engine.json) → Adobe Firefly 3D → Blender 뼈대·CMU 모션캡처(공개) → 스프라이트 아틀라스(game-builder rig-characters.py).",
+      "date": "2026-10-13"
+    },
+    {
+      "file": "rig/cat.json",
+      "license": "self-generated",
+      "source": "GPT 웹앱 T포즈 원화(game-assets-src/rig/src/_engine.json) → Adobe Firefly 3D → Blender 뼈대·CMU 모션캡처(공개) → 스프라이트 아틀라스(game-builder rig-characters.py).",
+      "date": "2026-10-13"
+    },
+    {
+      "file": "rig/cat.png",
+      "license": "self-generated",
+      "source": "GPT 웹앱 T포즈 원화(game-assets-src/rig/src/_engine.json) → Adobe Firefly 3D → Blender 뼈대·CMU 모션캡처(공개) → 스프라이트 아틀라스(game-builder rig-characters.py).",
+      "date": "2026-10-13"
+    },
+    {
+      "file": "rig/dragon.json",
+      "license": "self-generated",
+      "source": "GPT 웹앱 T포즈 원화(game-assets-src/rig/src/_engine.json) → Adobe Firefly 3D → Blender 뼈대·CMU 모션캡처(공개) → 스프라이트 아틀라스(game-builder rig-characters.py).",
+      "date": "2026-10-13"
+    },
+    {
+      "file": "rig/dragon.png",
+      "license": "self-generated",
+      "source": "GPT 웹앱 T포즈 원화(game-assets-src/rig/src/_engine.json) → Adobe Firefly 3D → Blender 뼈대·CMU 모션캡처(공개) → 스프라이트 아틀라스(game-builder rig-characters.py).",
+      "date": "2026-10-13"
+    },
+    {
+      "file": "rig/fox.json",
+      "license": "self-generated",
+      "source": "GPT 웹앱 T포즈 원화(game-assets-src/rig/src/_engine.json) → Adobe Firefly 3D → Blender 뼈대·CMU 모션캡처(공개) → 스프라이트 아틀라스(game-builder rig-characters.py).",
+      "date": "2026-10-13"
+    },
+    {
+      "file": "rig/fox.png",
+      "license": "self-generated",
+      "source": "GPT 웹앱 T포즈 원화(game-assets-src/rig/src/_engine.json) → Adobe Firefly 3D → Blender 뼈대·CMU 모션캡처(공개) → 스프라이트 아틀라스(game-builder rig-characters.py).",
+      "date": "2026-10-13"
+    },
+    {
+      "file": "rig/owl.json",
+      "license": "self-generated",
+      "source": "GPT 웹앱 T포즈 원화(game-assets-src/rig/src/_engine.json) → Adobe Firefly 3D → Blender 뼈대·CMU 모션캡처(공개) → 스프라이트 아틀라스(game-builder rig-characters.py).",
+      "date": "2026-10-13"
+    },
+    {
+      "file": "rig/owl.png",
+      "license": "self-generated",
+      "source": "GPT 웹앱 T포즈 원화(game-assets-src/rig/src/_engine.json) → Adobe Firefly 3D → Blender 뼈대·CMU 모션캡처(공개) → 스프라이트 아틀라스(game-builder rig-characters.py).",
+      "date": "2026-10-13"
+    },
+    {
+      "file": "rig/penguin.json",
+      "license": "self-generated",
+      "source": "GPT 웹앱 T포즈 원화(game-assets-src/rig/src/_engine.json) → Adobe Firefly 3D → Blender 뼈대·CMU 모션캡처(공개) → 스프라이트 아틀라스(game-builder rig-characters.py).",
+      "date": "2026-10-13"
+    },
+    {
+      "file": "rig/penguin.png",
+      "license": "self-generated",
+      "source": "GPT 웹앱 T포즈 원화(game-assets-src/rig/src/_engine.json) → Adobe Firefly 3D → Blender 뼈대·CMU 모션캡처(공개) → 스프라이트 아틀라스(game-builder rig-characters.py).",
+      "date": "2026-10-13"
+    },
+    {
+      "file": "rig/rabbit.json",
+      "license": "self-generated",
+      "source": "GPT 웹앱 T포즈 원화(game-assets-src/rig/src/_engine.json) → Adobe Firefly 3D → Blender 뼈대·CMU 모션캡처(공개) → 스프라이트 아틀라스(game-builder rig-characters.py).",
+      "date": "2026-10-13"
+    },
+    {
+      "file": "rig/rabbit.png",
+      "license": "self-generated",
+      "source": "GPT 웹앱 T포즈 원화(game-assets-src/rig/src/_engine.json) → Adobe Firefly 3D → Blender 뼈대·CMU 모션캡처(공개) → 스프라이트 아틀라스(game-builder rig-characters.py).",
+      "date": "2026-10-13"
     },
     {
       "file": "audio/bgm-rush.m4a",

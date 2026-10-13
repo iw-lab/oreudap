@@ -45,7 +45,7 @@ export class Sound {
     // 🔴 참조만 버리면 «전역 사운드 매니저에서 계속 울리는» BGM 이 남아 중첩된다.
     //    먼저 멈추고 파괴한 뒤에 참조를 버린다.
     try {
-      if (this.bgm) { this.bgm.stop(); this.bgm.destroy(); }
+      if (this.bgm) this.drop(this.bgm);
     } catch { /* 이미 파괴됨 */ }
     this.bgm = null;
     this.scene = scene;
@@ -94,7 +94,7 @@ export class Sound {
       if (this.bgm && this.bgm.pendingRemove) this.bgm = null;
       if (this.bgm && this.bgm.isPlaying) return true;
       if (!this.bgm || this.bgm.key !== key) {
-        try { if (this.bgm) { this.bgm.stop(); this.bgm.destroy(); } } catch { /* 이미 파괴됨 */ }
+        try { if (this.bgm) this.drop(this.bgm); } catch { /* 이미 파괴됨 */ }
         this.bgm = this.scene.sound.add(key, { loop: true, volume });
       }
       this.bgm.play();
@@ -170,6 +170,13 @@ export class Sound {
     }
   }
 
+  /** 소리 하나를 치운다 — 🔴 걸려 있는 볼륨 트윈을 먼저 끊는다. 크로스페이드 중(1초)에 다시 바뀌면
+   *  파괴된 소리에 트윈이 volume 을 써서 «Cannot set properties of null (setting 'volume')» 가 났다(부하 걸린 QA 에서 재현). */
+  drop(snd) {
+    try { if (this.scene && this.scene.tweens) this.scene.tweens.killTweensOf(snd); } catch { /* 씬 정리됨 */ }
+    try { snd.stop(); snd.destroy(); } catch { /* 이미 정리됨 */ }
+  }
+
   /** 크로스페이드 — 「툭」 끊고 갈면 층 경계가 사고처럼 들린다 */
   swapTrack() {
     if (!this.scene || !this.enabledFn()) return;
@@ -187,10 +194,10 @@ export class Sound {
       if (tw) {
         tw.add({ targets: next, volume: this.bgmVolume, duration: XFADE_MS });
         if (old) tw.add({ targets: old, volume: 0, duration: XFADE_MS,
-          onComplete: () => { try { old.stop(); old.destroy(); } catch { /* 이미 정리됨 */ } } });
+          onComplete: () => this.drop(old) });
       } else {
         next.setVolume(this.bgmVolume);
-        if (old) { try { old.stop(); old.destroy(); } catch { /* 이미 정리됨 */ } }
+        if (old) this.drop(old);
       }
     } catch (e) { this.failed.push(`swap play: ${e && e.message}`); }
   }

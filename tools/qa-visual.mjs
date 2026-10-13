@@ -236,7 +236,8 @@ async function main() {
     });
     if (pause.w < 44 || pause.h < 44) FAIL(`일시정지 버튼 ${pause.w}×${pause.h} < 44px`);
 
-    // 오답 하이라이트
+    // 오답 하이라이트 — 문항이 «답할 수 있는» 상태일 때 누른다(호스트 부하로 앞 연출이 늦으면 입력이 무시돼 0개로 거짓 FAIL)
+    await page.waitForFunction(() => { const c = window.__SMOKE__.app.core; return c.phase === 'question' && !c.answered; }, null, { timeout: 15000 });
     await page.evaluate(() => {
       const app = window.__SMOKE__.app;
       const q = app.core.question;
