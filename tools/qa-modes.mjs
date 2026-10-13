@@ -40,6 +40,8 @@ function serve() {
   return new Promise((res) => {
     const srv = http.createServer((req, rsp) => {
       const url = decodeURIComponent(req.url.split('?')[0]);
+      // 학교 허브 중계가 없는 로컬 서버 — 키트 약속대로 «꺼짐»을 200 으로 알린다(404 면 콘솔 오류로 세진다)
+      if (url.startsWith('/api/hub')) { rsp.writeHead(200, { 'Content-Type': 'application/json' }); rsp.end('{"offline":true}'); return; }
       const p = path.join(DIR, url === '/' ? 'index.html' : url);
       if (!p.startsWith(DIR) || !fs.existsSync(p) || fs.statSync(p).isDirectory()) {
         rsp.writeHead(404).end('404'); return;
@@ -89,9 +91,9 @@ const hud = () => {
 /** UI 로 모드를 고르고 판을 시작한다 — 내부 필드를 만지지 않는다(그러면 UI 를 안 재는 것이다) */
 async function startVia(page, mode) {
   await page.evaluate(() => { window.__SMOKE__.app.go('title'); });
-  await page.click('.subject-card >> nth=0');
-  await page.click(`.mode-opt[data-mode="${mode}"]`);
-  await page.click('#scope-start');
+  // v2: 첫 화면에서 과목 칩 → 모드 카드를 누르면 그 모드로 «바로» 시작한다(범위 화면 없음)
+  await page.click('.subject-chip >> nth=0');
+  await page.click(`.gb-mode[data-id="${mode}"]`);
   await page.waitForFunction(() => {
     const a = window.__SMOKE__.app;
     return a.core && a.core.phase === 'question';
@@ -108,12 +110,11 @@ async function main() {
   console.log('\n── 모드가 화면에서도 모드인가 (D34) ──');
 
   // 모드 선택지가 코어의 모드 목록과 «같은 수»로 그려진다
-  await page.click('.subject-card >> nth=0');
-  const opts = await page.$$eval('.mode-opt', (es) => es.map((e) => e.dataset.mode));
-  if (opts.length !== Object.keys(MODES).length) {
-    FAIL(`모드 버튼 ${opts.length}개 · 코어 모드 ${Object.keys(MODES).length}개 — 화면에 없는 모드는 없는 모드다`);
-  }
-  NOTE(`모드 버튼 ${opts.length}개: ${opts.join(', ')}`);
+  const opts = await page.$$eval('.gb-mode', (es) => es.map((e) => e.dataset.id));
+  const missing = Object.keys(MODES).filter((m) => !opts.includes(m));
+  if (missing.length) FAIL(`코어 모드 ${missing.join(',')} 의 카드가 없다 — 화면에 없는 모드는 없는 모드다`);
+  if (!opts.includes('daily')) FAIL('오늘의 계단 카드가 없다');
+  NOTE(`모드 카드 ${opts.length}개: ${opts.join(', ')}`);
 
   // ⑤ 클래식 — 기력·판 시계가 없다
   await startVia(page, 'classic');
@@ -159,12 +160,23 @@ async function main() {
   if (!(t1 < t0 - 0.5)) FAIL(`판 시계가 ${t0}→${t1} — 줄지 않는다`);
   NOTE(`60초 질주: 시계 O · 기력 X · 1.2초에 ${t0}→${t1}초`);
 
+  // ⑦ 거울 계단 — 문제는 곱, 보기는 식(D48)
+  await startVia(page, 'mirror');
+  const mq = await page.evaluate(() => ({ mode: window.__SMOKE__.app.core.mode, q: document.querySelector('#qtext').textContent,
+    ch: [...document.querySelectorAll('#choices .choice .txt')].map((e) => e.textContent) }));
+  if (mq.mode !== 'mirror') FAIL(`거울 계단을 골랐는데 ${mq.mode} 로 시작했다`);
+  if (!/^\d+$/.test(mq.q.trim())) FAIL(`거울 계단 문제가 곱(숫자)이 아니다: «${mq.q}»`);
+  if (!mq.ch.length || !mq.ch.every((c) => /^\d × \d$/.test(c))) FAIL(`거울 계단 보기가 식이 아니다: ${mq.ch.join(' / ')}`);
+  NOTE(`거울 계단: «${mq.q}» → ${mq.ch.join(' / ')}`);
+  // 끝난 판이 아니면 다음 검사를 위해 저장 모드를 sprint 로 되돌린다
+  await startVia(page, 'sprint');
+
   // ⑥ 고른 모드가 남는다
   // 🔴 저장 형식은 {version, data} 다 — 최상위에서 mode 를 찾으면 영원히 undefined 다(그렇게 틀렸다).
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('oreudap:progress')).data.mode);
   if (saved !== 'sprint') FAIL(`저장된 모드가 ${saved} — 마지막에 고른 sprint 여야 한다`);
   await boot(page);
-  const restored = await page.$eval('.subject-card', (e) => e && true) && await page.evaluate(() => window.__SMOKE__.app.mode);
+  const restored = await page.$eval('.subject-chip', (e) => e && true) && await page.evaluate(() => window.__SMOKE__.app.mode);
   if (restored !== 'sprint') FAIL(`새로 켰을 때 모드가 ${restored} — 고른 모드를 기억하지 못한다`);
   NOTE('고른 모드가 새로 켜도 남는다');
 

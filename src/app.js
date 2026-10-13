@@ -946,16 +946,30 @@ export class App {
       const b = el('button', `shop-item${owned ? '' : ' locked'}`);
       b.type = 'button';
       b.setAttribute('aria-pressed', String(active));
+      const man = (this.scene && this.scene.manifest) || {};
       if (kind === 'skin') {
-        const img = document.createElement('img');
-        img.src = `./assets/images/char-${item.id}.webp`;
-        img.alt = item.name;
-        img.loading = 'lazy';
-        b.append(img);
+        const rig = (man.rig || {})[item.id];
+        if (rig) {
+          // 리그 아틀라스의 첫 프레임(서 있는 자세)을 CSS 로 잘라 보여 준다 — 미리보기 그림을 따로 만들지 않는다
+          const th = el('div', 'rig-thumb');
+          th.setAttribute('role', 'img');
+          th.setAttribute('aria-label', item.name);
+          th.style.backgroundImage = `url(./assets/rig/${rig.png})`;
+          th.style.backgroundSize = `${(rig.size[0] / rig.frame[0]) * 100}% ${(rig.size[1] / rig.frame[1]) * 100}%`;
+          th.style.backgroundPosition = '0 0';
+          b.append(th);
+        } else {
+          const img = document.createElement('img');
+          img.src = `./assets/images/char-${item.id}.webp`;
+          img.alt = item.name;
+          img.loading = 'lazy';
+          b.append(img);
+        }
       } else {
-        const sw = el('div', 'sw');
-        sw.style.backgroundImage = `url(./assets/images/bg-${item.id}.webp)`;
-        sw.style.backgroundSize = 'cover';
+        // v2: 배경은 여정 구간이 정한다 — 여기서 고르는 것은 «발판 모양»이다
+        const sw = el('div', 'sw sw-plat');
+        const plat = (man.themePlatform || {})[item.id] || 'stone';
+        sw.style.backgroundImage = `url(./assets/images/platform-${plat}.webp)`;
         b.append(sw);
       }
       b.append(el('div', 's-name', item.name));

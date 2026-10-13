@@ -15,5 +15,15 @@
  "framing": "front view, full body with both feet visible, single isolated character, centered, about 10% margin on every side",
  "bg": "plain flat single-color light gray background, no floor, no shadow on the background, no gradient",
  "neg": "no text, no logo, no watermark, no props, no other characters",
- "note": "리그 원화 = T포즈 정면(rig-characters.py). refs = v1 캐릭터 그림(같은 아이로 알아보게)"
+ "note": "리그 원화 = T포즈 정면(rig-characters.py). refs = v1 캐릭터 그림(같은 아이로 알아보게)",
+ "zones": {
+  "style": "soft painterly cartoon game background, gentle gradients, clean shapes, cute storybook mood, rich but calm colors so white text and yellow buttons stay readable on top",
+  "who": {
+   "forest": "looking up through a tall magical forest: giant tree trunks on the left and right edges, leafy canopy, sunbeams and floating leaves, warm green and gold light",
+   "cloud": "high in the sky among fluffy pastel clouds, soft blue sky, distant floating cloud islands, gentle sunlight, a few birds far away",
+   "space": "deep outer space, purple and navy nebula, many small twinkling stars, a few colorful distant planets and a ringed planet near the edges",
+   "lava": "inside a volcanic cavern going upward, dark rock walls on the left and right edges, glowing orange lava falls and embers floating up, warm red-orange glow"
+  },
+  "note": "세계 = 여정 구간 1:1 · 세로 9:16 · 위아래 이음매는 WorldScene 의 상하 반전 타일이 숨긴다"
+ }
 }

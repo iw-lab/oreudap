@@ -22,6 +22,12 @@ BG_W, BG_H = 720, 1280
 CHARS = ['fox', 'rabbit', 'penguin', 'cat', 'bear', 'owl', 'dragon']
 PLATFORMS = ['stone', 'cloud', 'wood', 'crystal']
 BGS = ['dawn', 'day', 'sunset', 'night']
+# v2(2026-10-13): 세계 = 여정 구간(숲·구름·우주·용암). 원본 = game-assets-src/zones/<id>.png (Firefly/GPT 생성)
+ZONES = ['forest', 'cloud', 'space', 'lava']
+ZONE_SRC = ROOT / 'game-assets-src' / 'zones'
+# v2: 캐릭터 = Firefly 3D + 뼈대 → 액션 아틀라스(rig-characters.py 산출, public/assets/rig/<id>.png/.json).
+#     리그된 캐릭터는 옛 «포즈 그림 두 장»(char-<id>.webp · -jump)을 더 만들지 않는다(gate-char-rig 가 남은 옛 그림을 FAIL).
+RIG_DIR = ROOT / 'public' / 'assets' / 'rig'
 # 테마 → 발판 매핑 (테마 해금과 발판 외형을 함께 바꾼다)
 THEME_PLATFORM = {'dawn': 'stone', 'day': 'cloud', 'sunset': 'wood', 'night': 'crystal'}
 
@@ -78,7 +84,20 @@ def build(check=False):
 
     # 서 있는 포즈와 «점프 포즈» 두 벌. 점프는 프레임 애니메이션이 아니라 «자세 한 장»이다 —
     # AI 는 프레임 간 연속성을 못 만들지만 자세 한 장은 잘 만든다(모션은 조달·자세는 생성).
+    manifest['rig'] = {}
     for name in CHARS:
+        png, js = RIG_DIR / f'{name}.png', RIG_DIR / f'{name}.json'
+        if png.exists() and js.exists():
+            meta = json.loads(js.read_text())
+            fr = next(iter(meta['frames'].values()))['frame']
+            data = png.read_bytes()
+            manifest['rig'][name] = {'png': png.name, 'json': js.name, 'bytes': len(data) + js.stat().st_size,
+                                     'sha1': hashlib.sha1(data).hexdigest()[:12],
+                                     'size': [meta['meta']['size']['w'], meta['meta']['size']['h']], 'frame': [fr['w'], fr['h']]}
+            for stale in (OUT / f'char-{name}.webp', OUT / f'char-{name}-jump.webp'):
+                if stale.exists() and not check:
+                    stale.unlink()
+            continue
         for suffix, key in (('', ''), ('-jump', '-jump')):
             src = RAW / f'char-{name}{suffix}.png'
             if not src.exists():
@@ -123,6 +142,18 @@ def build(check=False):
         top = (im.height - BG_H) // 2
         im = im.crop((left, top, left + BG_W, top + BG_H))
         manifest['images'][f'bg-{name}'] = write(im, OUT / f'bg-{name}.webp', quality=82)
+
+    for name in ZONES:
+        src = ZONE_SRC / f'{name}.png'
+        if not src.exists():
+            continue   # 아직 안 만든 구간은 테마 하늘로 대신한다(WorldScene.bgKeyFor)
+        im = Image.open(src).convert('RGB')
+        scale = max(BG_W / im.width, BG_H / im.height)
+        im = im.resize((round(im.width * scale), round(im.height * scale)), Image.LANCZOS)
+        left = (im.width - BG_W) // 2
+        top = (im.height - BG_H) // 2
+        im = im.crop((left, top, left + BG_W, top + BG_H))
+        manifest['images'][f'zone-{name}'] = write(im, OUT / f'zone-{name}.webp', quality=80)
 
     if problems:
         print('❌ 에셋 문제:')

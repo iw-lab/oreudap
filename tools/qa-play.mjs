@@ -40,6 +40,8 @@ function serve() {
   return new Promise((res) => {
     const srv = http.createServer((req, rsp) => {
       const url = decodeURIComponent(req.url.split('?')[0]);
+      // 학교 허브 중계가 없는 로컬 서버 — 키트 약속대로 «꺼짐»을 200 으로 알린다(404 면 콘솔 오류로 세진다)
+      if (url.startsWith('/api/hub')) { rsp.writeHead(200, { 'Content-Type': 'application/json' }); rsp.end('{"offline":true}'); return; }
       const p = path.join(DIR, url === '/' ? 'index.html' : url);
       if (!p.startsWith(DIR) || !fs.existsSync(p) || fs.statSync(p).isDirectory()) {
         rsp.writeHead(404).end('404');
@@ -90,8 +92,8 @@ async function main() {
       const app = window.__SMOKE__.app;
       if (app.screen !== 'title') app.go('title');
     });
-    await page.click(`.subject-card >> nth=${subject}`);
-    await page.click('#scope-start');
+    await page.click(`.subject-chip >> nth=${subject}`);
+    await page.click('#btn-play');   // v2: 첫 화면 주 단추(범위 화면 없음)
     await page.waitForFunction(() => window.__SMOKE__.app.core && window.__SMOKE__.app.core.phase === 'question');
     await page.evaluate(() => { window.__SMOKE__.app.qaLog = []; });
   };
@@ -286,105 +288,56 @@ async function main() {
   if (final.qa.zombieTweens > 0) FAIL(`파괴된 대상을 도는 트윈 ${final.qa.zombieTweens}개 — 생명주기 누수`);
   if (final.qa.loadErrors.length) FAIL(`에셋 로드 실패 ${final.qa.loadErrors.length}건: ${final.qa.loadErrors.join(', ')}`);
 
-  // ── D21: 개인정보 — 네트워크 전수 ───────────────────────
+  // ── D21·D49: 개인정보 — 네트워크 전수 ─────────────────────
+  // 🔴 v2(2026-10-13 사용자 «학교랭킹으로 하자»): 개인 등수판이 없어졌다. 기기 밖으로 나가는 곳은
+  //    같은 오리진의 학교 허브 중계(/api/hub/*) 하나뿐이고, 거기엔 아이 이름이 «있을 자리 자체»가 없다.
+  //    그래서 «지키려던 성질»을 그대로 잰다: 실명을 기기에 넣고 한 판을 정산시킨 뒤 나간 바이트에 그 글자가 0건인가.
   const origin = `http://127.0.0.1:${PORT}`;
   // blob:<origin>/… 와 data: 는 «네트워크로 나가는 요청»이 아니다(브라우저 내부 객체).
-  // 그걸 외부로 세면 게이트가 진짜 외부 전송을 가리는 잡음이 된다.
   const isLocal = (u) => u.startsWith(origin) || u.startsWith(`blob:${origin}`) || u.startsWith('data:');
-  const RANK_HOST = 'https://oreudap-rank.simssijjang-a04.workers.dev';
-  const isRank = (u) => u.startsWith(`${RANK_HOST}/api/rank`);
-  const blobs = requests.filter((r) => r.url.startsWith('blob:'));
-  const rank = requests.filter((r) => isRank(r.url));
-  const external = requests.filter((r) => !isLocal(r.url) && !isRank(r.url));
-  NOTE(`네트워크 요청 ${requests.length}건 · 내부 blob ${blobs.length} · 등수 API ${rank.length} · 그 밖의 외부 ${external.length}`);
+  const isHub = (u) => u.startsWith(`${origin}/api/hub`);
+  const isOldRank = (u) => /oreudap-rank|\/api\/rank/.test(u);
+  const external = requests.filter((r) => !isLocal(r.url));
+  const oldRank = requests.filter((r) => isOldRank(r.url));
+  NOTE(`네트워크 요청 ${requests.length}건 · 학교 허브 ${requests.filter((r) => isHub(r.url)).length} · 옛 등수 ${oldRank.length} · 외부 ${external.length}`);
+  if (external.length) FAIL(`외부로 나가는 요청 ${external.length}건: ${external.slice(0, 3).map((r) => r.url).join(', ')}`);
+  if (oldRank.length) FAIL(`옛 개인 등수 API 요청 ${oldRank.length}건 — 개인 등수판은 없앴다(D49)`);
+  const localBad = requests.filter((r) => isLocal(r.url) && !isHub(r.url) && (r.method !== 'GET' || r.post));
+  if (localBad.length) FAIL(`허브 밖 자체 도메인으로 데이터를 보내는 요청 ${localBad.length}건: ${localBad.slice(0, 2).map((r) => r.url).join(', ')}`);
 
-  // ① 바깥으로 나가는 곳은 등수 API 하나뿐이다
-  if (external.length) FAIL(`허용되지 않은 외부 요청 ${external.length}건: ${external.slice(0, 3).map((r) => r.url).join(', ')}`);
-
-  // ② 자체 도메인 요청은 여전히 «본문 없는 GET» 이어야 한다
-  const localBad = requests.filter((r) => isLocal(r.url) && (r.method !== 'GET' || r.post));
-  if (localBad.length) FAIL(`자체 도메인으로 데이터를 보내는 요청 ${localBad.length}건`);
-
-  // ③ 🔴 실명이 기기를 벗어나지 않는가 — 이 게이트의 핵심.
-  //    직접 지은 이름을 넣고 한 판을 정산시킨 뒤, 나간 «모든» 바이트에서 그 글자를 찾는다.
   const SECRET = '김철수';
   await page.evaluate((n) => { localStorage.setItem('oreudap:nick', n); }, SECRET);
   const sent = [];
-  page.on('request', (r) => { if (isRank(r.url())) sent.push({ url: r.url(), body: r.postData() || '' }); });
+  page.on('request', (r) => { if (!r.url().startsWith('data:')) sent.push({ url: r.url(), body: r.postData() || '' }); });
   await page.evaluate(() => { window.__SMOKE__.app.go('title'); });
+  // 🔴 UI 로 시작한다(주 단추 → gbGate → 허브 시도) — 내부 startRun 을 부르면 허브 경로를 안 재는 것이다
+  await page.click('#btn-play');
+  await page.waitForFunction(() => window.__SMOKE__.app.core && window.__SMOKE__.app.core.phase === 'question', null, { timeout: 15000 });
   const runInfo = await page.evaluate(async () => {
     const app = window.__SMOKE__.app;
-    app.subject = 'gugudan';
-    app.scope = null;
-    app.startRun();
-    const seen = [];
     for (let i = 0; i < 6; i++) {
       const c = app.core;
-      seen.push(c ? c.phase : 'nocore');
       if (!c || c.phase !== 'question' || c.answered) { await new Promise((r) => setTimeout(r, 200)); continue; }
       app.press(c.question.answerIndex, 'pointer');
       await new Promise((r) => setTimeout(r, 280));
     }
     const floor = app.core ? app.core.floor : -1;
-    const settled = app.settled;
-    // 🔴 «오늘 이미 올린 최고» 를 여기서 지운다 — 시작 시점에 지우면 앞 시험의 봇이
-    //    아직 돌고 있다가 더 높은 기록을 올려 이 런이 «최고가 아님»으로 건너뛰어진다(실측).
-    try { localStorage.removeItem('oreudap:sent'); } catch { /* 무시 */ }
-    const sentRaw = null;
     app.quitRun();
-    return { floor, settled, phases: seen.join('>'), subject: app.subject, sentRaw };
+    return { floor, settled: app.settled };
   });
-  await page.waitForTimeout(2000);
-  NOTE(`등수 제출용 런: ${runInfo.floor}층 · ${runInfo.subject} · settled ${runInfo.settled} · sent ${runInfo.sentRaw}`);
+  await page.waitForTimeout(1500);
+  const hubSent = sent.filter((r) => isHub(r.url));
+  NOTE(`정산 런: ${runInfo.floor}층 · settled ${runInfo.settled} · 허브 요청 ${hubSent.length}건`);
+  if (!hubSent.length) FAIL('판을 시작·정산했는데 학교 허브 요청이 0건 — 측정 무효(관문 미배선)');
+  const leaked = sent.filter((r) => `${r.url}${r.body}`.includes(SECRET) || `${decodeURIComponent(r.url)}`.includes(SECRET));
+  if (leaked.length) FAIL(`기기에 있던 이름 "${SECRET}" 이 밖으로 나갔다 ${leaked.length}건`);
+  if (sent.some((r) => isOldRank(r.url))) FAIL('정산 때 옛 개인 등수 API 로 보냈다');
 
-  const leaked = sent.filter((r) => `${r.url}${r.body}`.includes(SECRET));
-  if (leaked.length) FAIL(`직접 지은 이름 "${SECRET}" 이 그대로 전송됐다 ${leaked.length}건 — 보내기 전에 가려야 한다`);
-  const posts = sent.filter((r) => r.body);
-  if (!posts.length) {
-    FAIL(`등수 제출이 한 건도 안 나갔다 — 측정 무효. 런 ${runInfo.floor}층 · settled ${runInfo.settled} · 흐름 ${runInfo.phases}`);
-  }
-  for (const p of posts) {
-    let body = null;
-    try { body = JSON.parse(p.body); } catch { FAIL('등수 제출 본문이 JSON 이 아니다'); continue; }
-    // 🔴 기기 밖으로 나가는 필드는 «늘어날 때마다» 여기서 명시적으로 승인돼야 한다.
-    //    m(모드) 은 2026-09-05 에 추가했다 — 세 값 중 하나인 열거형이라 자유 입력이 아니다.
-    //    이 목록을 「대충 통과」시키면 D29 는 그날로 죽는다.
-    const keys = Object.keys(body).sort().join(',');
-    // t(봇 표시)는 2026-09-05 에 추가했다. 이 게이트는 자동화 브라우저에서 도므로 «반드시» 붙어 있어야 한다.
-    if (keys !== 'm,n,s,sub,t') FAIL(`등수 제출에 예상 밖 필드: ${keys} (m,n,s,sub,t 만 보내야 한다)`);
-    // 🔴 봇 표시가 빠지면 게이트가 매일 아이들 등수판에 가짜 기록을 쌓는다(2026-09-05 에 실제로 6줄 쌓였다).
-    //    표시는 클라이언트가 navigator.webdriver 로 스스로 판단한다 — 게이트마다 플래그를 심지 않으므로
-    //    앞으로 게이트가 몇 개 늘어도 자동으로 걸린다. 그 배선이 살아 있는지를 여기서 잰다.
-    if (body.t !== 1) FAIL('봇 표시(t)가 제출 본문에 없다 — 게이트 기록이 아이들 판에 올라간다');
-    if (!['classic', 'thrill', 'sprint'].includes(body.m)) {
-      FAIL(`모드 필드가 «${body.m}» — 정해진 세 값이 아니면 자유 입력이 새는 통로가 된다`);
-    }
-    if (typeof body.n !== 'string' || !body.n.includes('*')) {
-      FAIL(`제출된 이름 "${body.n}" 에 별표가 없다 — 직접 지은 이름은 가려서 보내야 한다`);
-    }
-  }
-  NOTE(`등수 제출 ${posts.length}건 · 실명 유출 0 · 보낸 이름 예: ${posts[0] ? JSON.parse(posts[0].body).n : '-'}`);
-
-  // ④ 입력 칸은 «이름 하나»뿐이고, 개인정보를 받는 종류가 아니다
-  const inputInfo = await page.evaluate(() => {
-    const all = [...document.querySelectorAll('input, textarea, [contenteditable="true"]')];
-    return all.map((e) => ({
-      id: e.id, tag: e.tagName.toLowerCase(), type: (e.getAttribute('type') || '').toLowerCase(),
-      max: Number(e.getAttribute('maxlength')) || 0,
-    }));
-  });
-  const BANNED = ['email', 'tel', 'date', 'password', 'number', 'url', 'month', 'week'];
-  for (const f of inputInfo) {
-    if (BANNED.includes(f.type)) FAIL(`개인정보를 받는 입력 종류 "${f.type}" 이 있다 (#${f.id})`);
-    if (f.tag !== 'input') FAIL(`자유 서술 입력(${f.tag})이 있다 — 아이가 무엇이든 쓸 수 있는 칸은 두지 않는다`);
-  }
-  const nickFields = inputInfo.filter((f) => f.id === 'nick');
-  if (inputInfo.length !== 1 || nickFields.length !== 1) {
-    FAIL(`입력 칸이 ${inputInfo.length}개 — 허용은 이름 칸(#nick) 하나뿐이다`);
-  } else if (!(nickFields[0].max > 0 && nickFields[0].max <= 8)) {
-    FAIL(`이름 칸 maxlength=${nickFields[0].max} — 1~8 이어야 한다(길면 '5학년3반김철수' 가 들어간다)`);
-  }
-  NOTE(`입력 칸 ${inputInfo.length}개 (이름 칸만, maxlength ${nickFields[0] ? nickFields[0].max : '-'})`);
+  // 입력 칸 0개 — 키트의 «학교 찾기» 창(.gb-layer 안, 열 때만 생김)은 학교 이름 검색이라 예외(학교 = 개인정보 예외 · NEIS 목록 선택)
+  const inputInfo = await page.evaluate(() => [...document.querySelectorAll('input, textarea, [contenteditable="true"]')]
+    .filter((e) => !e.closest('.gb-layer, .gb-sheet')).map((e) => ({ id: e.id, tag: e.tagName.toLowerCase(), type: e.getAttribute('type') || '' })));
+  if (inputInfo.length) FAIL(`게임 화면에 입력 칸 ${inputInfo.length}개(${inputInfo.map((f) => f.id || f.tag).join(',')}) — 이름을 받는 칸은 없어야 한다(D49)`);
+  NOTE(`게임 화면 입력 칸 ${inputInfo.length}개`);
 
   const stored = await page.evaluate(() => {
     const out = {};
@@ -396,7 +349,8 @@ async function main() {
   });
   const keys = Object.keys(stored);
   NOTE(`localStorage 키 ${keys.length}개: ${keys.join(', ')}`);
-  if (keys.some((k) => !k.startsWith('oreudap:'))) FAIL(`네임스페이스 밖 저장 키: ${keys.filter((k) => !k.startsWith('oreudap:')).join(', ')}`);
+  const ns = (k) => k.startsWith('oreudap:') || k.startsWith('oreudap.hub.v1');   // 키트 허브 키 = configureHub({key})
+  if (keys.some((k) => !ns(k))) FAIL(`네임스페이스 밖 저장 키: ${keys.filter((k) => !ns(k)).join(', ')}`);
 
   if (errors.length) FAIL(`콘솔·런타임 오류 ${errors.length}건: ${errors.slice(0, 3).join(' | ')}`);
 
@@ -410,7 +364,7 @@ async function main() {
     for (const f of fails) console.log('  ✖ ' + f);
     process.exit(1);
   }
-  console.log('\n✅ 플레이 QA PASS (D13 · D14 · D21 · D22 · D29 · D36)');
+  console.log('\n✅ 플레이 QA PASS (D13 · D14 · D21 · D22 · D49)');
 }
 
 main().catch((e) => {

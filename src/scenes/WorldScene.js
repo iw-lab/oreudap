@@ -95,6 +95,10 @@ export class WorldScene extends Phaser.Scene {
     for (const [key, meta] of Object.entries(imgs)) {
       if (!this.textures.exists(key)) this.load.image(key, `./assets/images/${meta.file}`);
     }
+    // 🦴 리그 캐릭터(Firefly 3D + 뼈대 → 액션 프레임 아틀라스). «지금 고른 캐릭터 하나만» 첫 판 전에 받는다 —
+    //    일곱을 다 받으면 첫 문제까지 전송량 예산(D25)을 캐릭터가 다 먹는다. 나머지는 고를 때 받는다(setSkin).
+    const rig = (this.manifest.rig || {})[this.skin];
+    if (rig && !this.textures.exists(`rig-${this.skin}`)) this.load.atlas(`rig-${this.skin}`, `./assets/rig/${rig.png}`, `./assets/rig/${rig.json}`);
     const audio = this.manifest.audio || {};
     for (const [key, meta] of Object.entries(audio)) {
       if (this.cache.audio.exists(key)) continue;
@@ -135,7 +139,7 @@ export class WorldScene extends Phaser.Scene {
     this.free = this.pool.slice();
 
     this.shadow = this.add.ellipse(0, 0, 60, 16, 0x000000, 0.28);
-    this.char = this.add.image(0, 0, `char-${this.skin}`).setOrigin(0.5, 1);
+    this.char = this.makeChar(this.skin);
     this.world.add(this.shadow);
     this.world.add(this.char);
 
@@ -434,6 +438,7 @@ export class WorldScene extends Phaser.Scene {
         duration: this.reduced ? 1 : 180, yoyo: true, repeat: 1,
       }));
     }
+    this.setPose('sad');
     this.track(this.tweens.add({
       targets: this.char, angle: { from: -9, to: 9 },
       duration: this.reduced ? 1 : 90, yoyo: true, repeat: 1,
@@ -446,30 +451,88 @@ export class WorldScene extends Phaser.Scene {
   /** 스트릭 축하 — 캐릭터 뒤 반짝임 */
   celebrate() {
     if (!this.char || this.finished || !this.layout) return;
+    this.setPose('cheer');
     this.emitterSpark.setPosition(this.char.x, this.world.y + this.char.y - this.layout.charSize * 0.5);
     this.emitterSpark.explode(22);
+  }
+
+  // ── 캐릭터(리그 아틀라스 우선, 없으면 옛 그림) ─────────────────
+  rigKey(skin) { return `rig-${skin}`; }
+  hasRig(skin) { return this.textures.exists(this.rigKey(skin)); }
+
+  /** 아틀라스 meta.anims → Phaser 애니(idle 반복 · jump/cheer/sad 한 번) */
+  ensureRigAnims(skin) {
+    const key = this.rigKey(skin);
+    const meta = ((this.textures.get(key) || {}).customData || {}).meta || {};
+    for (const [name, frames] of Object.entries(meta.anims || {})) {
+      const act = name.slice(name.lastIndexOf('_') + 1);
+      const ak = `${skin}-${act}`;
+      if (this.anims.exists(ak)) continue;
+      this.anims.create({
+        key: ak, frames: frames.map((f) => ({ key, frame: f })),
+        frameRate: act === 'idle' ? 10 : act === 'jump' ? 55 : 18, repeat: act === 'idle' ? -1 : 0,
+      });
+    }
+    return meta;
+  }
+
+  makeChar(skin) {
+    if (this.hasRig(skin)) {
+      const meta = this.ensureRigAnims(skin);
+      const fr = `${skin}_idle_00`;
+      const spr = this.add.sprite(0, 0, this.rigKey(skin), this.textures.get(this.rigKey(skin)).has(fr) ? fr : undefined);
+      // 발 = 아틀라스 pivot(굽기 때 잰 발바닥 자리). 없으면 맨 아래
+      const fh = spr.frame ? spr.frame.height : 1;
+      spr.setOrigin(0.5, meta.pivotPx ? Math.min(1, meta.pivotPx[1] / fh) : 1);
+      if (this.anims.exists(`${skin}-idle`)) spr.play(`${skin}-idle`);
+      spr.__rig = skin;
+      return spr;
+    }
+    return this.add.image(0, 0, `char-${skin}`).setOrigin(0.5, 1);
   }
 
   setSkin(skin) {
     this.skin = skin;
     this.pose = 'idle';
     if (!this.char || !this.char.scene) return;
-    if (this.textures.exists(`char-${skin}`)) this.char.setTexture(`char-${skin}`);
+    const rig = (this.manifest.rig || {})[skin];
+    if (rig && !this.hasRig(skin)) {
+      // 고를 때 받는다 — 받는 동안은 지금 캐릭터 그대로
+      this.load.atlas(this.rigKey(skin), `./assets/rig/${rig.png}`, `./assets/rig/${rig.json}`);
+      this.load.once('complete', () => { if (this.skin === skin) this.setSkin(skin); });
+      this.load.start();
+      return;
+    }
+    // 아틀라스 캐릭터 ↔ 그림 캐릭터는 객체 종류가 달라 바꿔 끼운다(월드 컨테이너 안 같은 자리)
+    const x = this.char.x, y = this.char.y;
+    const idx = this.world ? this.world.getIndex(this.char) : -1;
+    this.char.destroy();
+    this.char = this.makeChar(skin);
+    this.char.setPosition(x, y);
+    if (this.world) { this.world.add(this.char); if (idx >= 0) this.world.moveTo(this.char, idx); }
     if (this.layout) this.char.setDisplaySize(this.layout.charSize, this.layout.charSize);
   }
 
   /**
-   * 자세 교체 — «점프 포즈 한 장»이다. 프레임 애니메이션이 아니다.
-   * 🔴 AI 는 프레임 간 연속성을 못 만들지만 «자세 한 장»은 잘 만든다. 그래서 모션은 코드가
-   *    만들고(트윈), 자세만 그림으로 바꾼다. 그림이 없으면 조용히 서 있는 자세를 쓴다.
+   * 자세 — 리그 캐릭터는 «액션 애니»(idle 반복 · jump · cheer · sad 한 번), 옛 그림은 «점프 그림 한 장».
    * 🔴 반드시 트윈을 «만들기 전»에 부른다 — setDisplaySize 가 scale 을 다시 잡으므로
    *    도약 중에 부르면 진행 중인 scaleY 트윈과 싸운다.
    */
   setPose(pose) {
-    // 🔴 파괴된 GameObject 도 «truthy» 다 — 씬을 재시작하면 이전 인스턴스의 캐릭터가
-    //    참조로 남아 setTexture 안에서 this.scene.sys 를 읽다 터진다(스모크가 잡았다).
-    //    살아 있는지는 .scene 이 남아 있는가로 본다.
+    // 🔴 파괴된 GameObject 도 «truthy» 다 — 살아 있는지는 .scene 이 남아 있는가로 본다.
     if (!this.char || !this.char.scene || !this.layout) return;
+    if (this.char.__rig) {
+      const ak = `${this.char.__rig}-${pose}`;
+      if (!this.anims.exists(ak)) return;
+      this.pose = pose;
+      this.char.play(ak, pose === 'idle');
+      if (pose !== 'idle') {
+        this.char.once('animationcomplete', () => {
+          if (this.char && this.char.scene && this.pose === pose) { this.pose = 'idle'; this.char.play(`${this.char.__rig}-idle`, true); }
+        });
+      }
+      return;
+    }
     const key = pose === 'jump' ? `char-${this.skin}-jump` : `char-${this.skin}`;
     if (!this.textures.exists(key) || this.char.texture.key === key) return;
     this.pose = pose;
@@ -541,6 +604,8 @@ export class WorldScene extends Phaser.Scene {
 
   /** QA 훅: 지금 캐릭터가 쓰고 있는 텍스처 키 */
   charTextureKey() { return this.char && this.char.scene ? this.char.texture.key : null; }
+  /** QA 훅: 리그 애니 이름·프레임 이름 */
+  charAnim() { return this.char && this.char.scene ? { rig: this.char.__rig || null, anim: this.char.anims && this.char.anims.currentAnim ? this.char.anims.currentAnim.key : null, frame: this.char.frame ? this.char.frame.name : null } : null; }
 
   /** QA 훅: 지금 화면에 보이는 «지나온 계단» 수 */
   visibleStairs() {

@@ -160,10 +160,10 @@ export const SHOP = {
     { id: 'dragon',  name: '아기 용',    price: 1500 },
   ],
   THEMES: [
-    { id: 'dawn',   name: '새벽 하늘', price: 0 },
-    { id: 'day',    name: '한낮 하늘', price: 300 },
-    { id: 'sunset', name: '노을 하늘', price: 600 },
-    { id: 'night',  name: '별밤 하늘', price: 1200 },
+    { id: 'dawn',   name: '바위 발판', price: 0 },
+    { id: 'day',    name: '구름 발판', price: 300 },
+    { id: 'sunset', name: '나무 발판', price: 600 },
+    { id: 'night',  name: '수정 발판', price: 1200 },
   ],
 };
 

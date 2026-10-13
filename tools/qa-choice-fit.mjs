@@ -63,6 +63,8 @@ function serve() {
   return new Promise((res) => {
     const srv = http.createServer((req, rsp) => {
       const url = decodeURIComponent(req.url.split('?')[0]);
+      // 학교 허브 중계가 없는 로컬 서버 — 키트 약속대로 «꺼짐»을 200 으로 알린다(404 면 콘솔 오류로 세진다)
+      if (url.startsWith('/api/hub')) { rsp.writeHead(200, { 'Content-Type': 'application/json' }); rsp.end('{"offline":true}'); return; }
       const p = path.join(DIR, url === '/' ? 'index.html' : url);
       if (!p.startsWith(DIR) || !fs.existsSync(p) || fs.statSync(p).isDirectory()) { rsp.writeHead(404); return rsp.end(); }
       rsp.writeHead(200, { 'content-type': MIME[path.extname(p)] || 'application/octet-stream' });

@@ -219,6 +219,18 @@
       "date": "2026-09-04"
     },
     {
+      "file": "audio/heart.m4a",
+      "license": "self-generated",
+      "source": "game-builder gen-sfx.py 오프라인 결정론 렌더(numpy) → loudnorm·ogg/m4a 변환.",
+      "date": "2026-09-04"
+    },
+    {
+      "file": "audio/heart.ogg",
+      "license": "self-generated",
+      "source": "game-builder gen-sfx.py 오프라인 결정론 렌더(numpy) → loudnorm·ogg/m4a 변환.",
+      "date": "2026-09-04"
+    },
+    {
       "file": "audio/heartbeat.m4a",
       "license": "self-generated",
       "source": "game-builder gen-sfx.py 오프라인 결정론 렌더(numpy) → loudnorm·ogg/m4a 변환.",
@@ -226,6 +238,42 @@
     },
     {
       "file": "audio/heartbeat.ogg",
+      "license": "self-generated",
+      "source": "game-builder gen-sfx.py 오프라인 결정론 렌더(numpy) → loudnorm·ogg/m4a 변환.",
+      "date": "2026-09-04"
+    },
+    {
+      "file": "audio/land.m4a",
+      "license": "self-generated",
+      "source": "game-builder gen-sfx.py 오프라인 결정론 렌더(numpy) → loudnorm·ogg/m4a 변환.",
+      "date": "2026-09-04"
+    },
+    {
+      "file": "audio/land.ogg",
+      "license": "self-generated",
+      "source": "game-builder gen-sfx.py 오프라인 결정론 렌더(numpy) → loudnorm·ogg/m4a 변환.",
+      "date": "2026-09-04"
+    },
+    {
+      "file": "audio/record.m4a",
+      "license": "self-generated",
+      "source": "game-builder gen-sfx.py 오프라인 결정론 렌더(numpy) → loudnorm·ogg/m4a 변환.",
+      "date": "2026-09-04"
+    },
+    {
+      "file": "audio/record.ogg",
+      "license": "self-generated",
+      "source": "game-builder gen-sfx.py 오프라인 결정론 렌더(numpy) → loudnorm·ogg/m4a 변환.",
+      "date": "2026-09-04"
+    },
+    {
+      "file": "audio/school.m4a",
+      "license": "self-generated",
+      "source": "game-builder gen-sfx.py 오프라인 결정론 렌더(numpy) → loudnorm·ogg/m4a 변환.",
+      "date": "2026-09-04"
+    },
+    {
+      "file": "audio/school.ogg",
       "license": "self-generated",
       "source": "game-builder gen-sfx.py 오프라인 결정론 렌더(numpy) → loudnorm·ogg/m4a 변환.",
       "date": "2026-09-04"

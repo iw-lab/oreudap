@@ -35,6 +35,8 @@ function serve() {
   return new Promise((res) => {
     const srv = http.createServer((req, rsp) => {
       const url = decodeURIComponent(req.url.split('?')[0]);
+      // 학교 허브 중계가 없는 로컬 서버 — 키트 약속대로 «꺼짐»을 200 으로 알린다(404 면 콘솔 오류로 세진다)
+      if (url.startsWith('/api/hub')) { rsp.writeHead(200, { 'Content-Type': 'application/json' }); rsp.end('{"offline":true}'); return; }
       const p = path.join(DIR, url === '/' ? 'index.html' : url);
       if (!p.startsWith(DIR) || !fs.existsSync(p) || fs.statSync(p).isDirectory()) {
         rsp.writeHead(404).end('404');
@@ -193,11 +195,11 @@ async function main() {
   // ── ① 세로 기본 화면: 상태 전수 + 측정 ─────────────────
   const mainErrs = await withPage('phone', async (page) => {
     await snap(page, '01-title');
-    await page.click('.subject-card >> nth=0');
+    await page.click('.subject-chip >> nth=0');
     await page.waitForTimeout(150);
-    await snap(page, '02-scope-gugudan');
+    await snap(page, '02-subject-gugudan');
 
-    await page.click('#scope-start');
+    await page.click('#btn-play');   // v2: 첫 화면 주 단추(범위 화면 없음)
     await page.waitForTimeout(500);
     await snap(page, '03-play-2way');
 
@@ -254,6 +256,10 @@ async function main() {
     await page.evaluate(() => {
       const app = window.__SMOKE__.app;
       app.core.floor = 61;
+      // 🔴 스크린샷·대비 측정이 길어 오답 해결 국면이 이미 지나 다음 문항(2갈래)이 떠 있을 수 있다 —
+      //    «해결 국면이 지금 끝난다»로 명시해 층 61 기준의 새 문항을 «반드시» 만들게 한다(시간에 기대지 않는다)
+      app.core.phase = 'resolve';
+      app.core.answered = true;
       app.core.resolveUntil = app.core.t;
       app.step(20);
     });
@@ -318,8 +324,8 @@ async function main() {
   // ── ② 다른 화면 크기 ────────────────────────────────────
   for (const vp of ['small', 'landscape', 'tall', 'desktop']) {
     const errs = await withPage(vp, async (page) => {
-      await page.click('.subject-card >> nth=0');
-      await page.click('#scope-start');
+      await page.click('.subject-chip >> nth=0');
+      await page.click('#btn-play');   // v2: 첫 화면 주 단추(범위 화면 없음)
       await page.waitForTimeout(500);
       await snap(page, `11-${vp}`);
       assertChoices(await measureChoices(page), vp);
@@ -329,8 +335,8 @@ async function main() {
 
   // ── ③ 영단어 과목(긴 텍스트) ────────────────────────────
   const wordErrs = await withPage('small', async (page) => {
-    await page.click('.subject-card >> nth=2');
-    await page.click('#scope-start');
+    await page.click('.subject-chip >> nth=2');
+    await page.click('#btn-play');   // v2: 첫 화면 주 단추(범위 화면 없음)
     await page.waitForTimeout(500);
     await snap(page, '12-play-words');
     assertChoices(await measureChoices(page), '영단어');

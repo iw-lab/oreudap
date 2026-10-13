@@ -595,6 +595,9 @@ html:root {
   .ps-bar i { display: block; height: 100%; width: 0; background: var(--accent); border-radius: 99px; transition: width .3s ease; }
 }
 
+.rig-thumb { width: 100%; aspect-ratio: 1; background-repeat: no-repeat; }
+.sw.sw-plat { background-size: contain; background-repeat: no-repeat; background-position: center; }
+
 /* ── 반응(주스) — kit/juice/juice.css 그대로(배너 자리만 HUD·발판 안 겹치게 조정) ── */
 /* @gb-juice-css v1 — kit/juice/juice.css. 게임 스타일시트 끝에 그대로 붙인다(CSP style-src 'self' 라 JS 가 <style> 을 넣지 않는다). */
 .gbj-layer{position:fixed;inset:0;pointer-events:none;z-index:40;overflow:hidden}

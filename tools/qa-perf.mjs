@@ -34,6 +34,8 @@ function serve() {
   return new Promise((res) => {
     const srv = http.createServer((req, rsp) => {
       const url = decodeURIComponent(req.url.split('?')[0]);
+      // 학교 허브 중계가 없는 로컬 서버 — 키트 약속대로 «꺼짐»을 200 으로 알린다(404 면 콘솔 오류로 세진다)
+      if (url.startsWith('/api/hub')) { rsp.writeHead(200, { 'Content-Type': 'application/json' }); rsp.end('{"offline":true}'); return; }
       const p = path.join(DIR, url === '/' ? 'index.html' : url);
       if (!p.startsWith(DIR) || !fs.existsSync(p) || fs.statSync(p).isDirectory()) {
         rsp.writeHead(404).end('404');
@@ -89,8 +91,8 @@ async function main() {
     while (!window.__SMOKE__ && Date.now() - t0 < 20000) await new Promise((r) => setTimeout(r, 50));
     await window.__SMOKE__.ready;
   });
-  await page.click('.subject-card >> nth=0');
-  await page.click('#scope-start');
+  await page.click('.subject-chip >> nth=0');
+  await page.click('#btn-play');   // v2: 첫 화면 주 단추(범위 화면 없음)
   await page.waitForFunction(() => window.__SMOKE__.app.core && window.__SMOKE__.app.core.phase === 'question');
   await page.waitForTimeout(600);
 
