@@ -88,6 +88,7 @@ async function main() {
   });
 
   const trace = [await read()];
+  let retries = 0;
   for (let i = 0; i < TOP; i++) {
     await page.waitForFunction(() => {
       const c = window.__SMOKE__.app.core;
@@ -100,13 +101,18 @@ async function main() {
       });
       throw new Error(`${e.message} · 상태 ${JSON.stringify(st)}`);
     });
-    const ans = await page.evaluate(() => window.__SMOKE__.app.core.question.answerIndex);
-    await page.evaluate((idx) => {
-      const c = document.querySelectorAll('.choice')[idx];
-      c.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerId: 1 }));
-      c.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: 1 }));
-      c.click();
-    }, ans);
+    // 🔴 «답할 수 있나» 확인과 누르기를 한 번에 한다 — 따로 왕복하면 부하(50+)에서 그 사이에 시간초과가 나
+    //    정답 28회인데 27층(측정 무효)이 됐다(2026-10-13). 못 눌렀으면 이번 회차는 세지 않고 다시.
+    const pressed = await page.evaluate(() => {
+      const c = window.__SMOKE__.app.core;
+      if (!c || c.phase !== 'question' || c.answered) return false;
+      const el = document.querySelectorAll('.choice')[c.question.answerIndex];
+      el.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerId: 1 }));
+      el.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: 1 }));
+      el.click();
+      return true;
+    });
+    if (!pressed) { i -= 1; if (++retries > 40) break; continue; }
     await page.waitForTimeout(320);
     trace.push(await read());
   }
