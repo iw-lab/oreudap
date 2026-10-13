@@ -28,7 +28,7 @@ export const MASTERY_WINDOW = 60;
 export function bucketOf(subject, id) {
   const s = String(id || '');
   if (subject === 'gugudan') {
-    const m = s.match(/^g:(\d+)x\d+$/);
+    const m = s.match(/^gm?:(\d+)x\d+$/);   // gm = 거울 계단(같은 단으로 센다)
     return m ? `gugudan:${m[1]}` : null;
   }
   // 🔴 낱말 과목 목록을 여기 다시 적지 않는다 — questions.POOLS 가 정본이다.

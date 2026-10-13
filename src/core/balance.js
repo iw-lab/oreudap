@@ -42,6 +42,12 @@ export const MODES = {
     //    거짓말이 된다(실측: p=0.5 에서 시간 종료 0%). 모드는 죽는 이유가 달라야 모드다.
     timed: true, hearts: 5, stamina: false, runMs: 60000,
   },
+  // 거울 계단(v2) — 문제를 거꾸로 낸다: 구구단은 «56» 을 보고 «7 × 8» 발판을, 낱말은 뜻을 보고 낱말을 고른다.
+  //    알아보기(recognition) 대신 «거꾸로 떠올리기»를 연습한다. 수치는 클래식과 같다 — 다른 것은 보기의 모양뿐.
+  mirror: {
+    label: '거울 계단', hint: '답을 보고 문제를 찾아요 · 56 → 7 × 8',
+    timed: true, hearts: 3, stamina: false, runMs: 0, mirror: true,
+  },
 };
 export const DEFAULT_MODE = 'classic';
 

@@ -77,13 +77,14 @@ export function maxTierFor(floor) {
   return tierIndexFor(floor) + 1;   // 층 경계는 balance.TIER_FLOORS 하나뿐이다
 }
 
-export function buildBank(subject, scope) {
+export function buildBank(subject, scope, mirror = false) {
   if (subject === 'gugudan') {
     const dans = scope && scope.length ? scope : [2, 3, 4, 5, 6, 7, 8, 9];
     const items = [];
     for (const a of dans) {
       for (let b = 1; b <= 9; b++) {
-        const it = { id: `g:${a}x${b}`, a, b };
+        // 거울 계단은 id 를 따로 쓴다 — «7 × 8 = ?» 를 아는 것과 «56 = ? × ?» 를 아는 것은 다른 기억이라 오답노트도 갈린다
+        const it = { id: `${mirror ? 'gm' : 'g'}:${a}x${b}`, a, b, mirror };
         it.tier = tierOf(it);
         items.push(it);
       }
@@ -93,7 +94,8 @@ export function buildBank(subject, scope) {
   const pool = poolOf(subject);
   const items = [];
   for (const e of pool) {
-    for (const dir of ['w2k', 'k2w']) {
+    // 거울 계단 = 뜻 → 낱말 방향만(떠올리기)
+    for (const dir of mirror ? ['k2w'] : ['w2k', 'k2w']) {
       const it = { id: `w:${subject}:${e.w}:${dir}`, entry: e, dir };
       it.tier = tierOf(it);
       items.push(it);
@@ -112,10 +114,11 @@ export class QuestionSource {
    * @param {import('./srs.js').PersistentNotes} o.notes
    * @param {() => number} [o.now] 현재 시각(ms) — 영속 박스 가중에만 쓴다
    */
-  constructor({ subject, scope, rng, sessionQueue, notes, now = () => Date.now() }) {
+  constructor({ subject, scope, rng, sessionQueue, notes, now = () => Date.now(), mirror = false }) {
     this.subject = subject;
     this.rng = rng;
-    this.items = buildBank(subject, scope);
+    this.mirror = !!mirror;
+    this.items = buildBank(subject, scope, this.mirror);
     this.byId = new Map(this.items.map((it) => [it.id, it]));
     this.pool = poolOf(subject);
     this.sessionQueue = sessionQueue;
@@ -182,6 +185,27 @@ export class QuestionSource {
 
   build(item, branches, answerIndex) {
     const need = branches - 1;
+    if (this.subject === 'gugudan' && item.mirror) {
+      // 보기 = 식. 오답 식은 «한 칸 옆»(a±1)×b · a×(b±1) — 곱이 정답과 반드시 다르다(차이 = b 또는 a ≥ 1).
+      //    🔴 «8 × 7» 처럼 값이 같은 다른 식을 오답으로 내면 맞는 답을 틀렸다고 하게 된다 — 그래서 곱이 다른 식만 쓴다.
+      const answer = item.a * item.b;
+      const near = [];
+      for (const [x, y] of [[item.a + 1, item.b], [item.a - 1, item.b], [item.a, item.b + 1], [item.a, item.b - 1]]) {
+        if (x >= 2 && x <= 9 && y >= 1 && y <= 9 && x * y !== answer) near.push(`${x} × ${y}`);
+      }
+      for (let i = near.length - 1; i > 0; i--) { const j = Math.floor(this.rng() * (i + 1)); [near[i], near[j]] = [near[j], near[i]]; }
+      const choices = [];
+      let wi = 0;
+      for (let i = 0; i < branches; i++) choices.push(i === answerIndex ? `${item.a} × ${item.b}` : near[wi++]);
+      return {
+        subject: 'gugudan',
+        prompt: String(answer),
+        promptSub: '어떤 곱셈?',
+        choices,
+        answerIndex,
+        answerText: `${item.a} × ${item.b}`,
+      };
+    }
     if (this.subject === 'gugudan') {
       const answer = item.a * item.b;
       const wrong = gugudanDistractors(item.a, item.b, need, this.rng);
@@ -225,7 +249,7 @@ export class QuestionSource {
   describe(id) {
     const it = this.byId.get(id);
     if (!it) return null;
-    if (this.subject === 'gugudan') return { q: `${it.a} × ${it.b}`, a: String(it.a * it.b) };
+    if (this.subject === 'gugudan') return it.mirror ? { q: String(it.a * it.b), a: `${it.a} × ${it.b}` } : { q: `${it.a} × ${it.b}`, a: String(it.a * it.b) };
     return it.dir === 'w2k'
       ? { q: it.entry.w, a: it.entry.k }
       : { q: it.entry.k, a: it.entry.w };
@@ -234,9 +258,10 @@ export class QuestionSource {
 
 /** 문항 id 를 사람이 읽는 형태로 (은행 없이) */
 export function describeId(id) {
-  if (id.startsWith('g:')) {
-    const [a, b] = id.slice(2).split('x').map(Number);
-    return { q: `${a} × ${b}`, a: String(a * b) };
+  if (id.startsWith('g:') || id.startsWith('gm:')) {
+    const m = id.startsWith('gm:');
+    const [a, b] = id.slice(m ? 3 : 2).split('x').map(Number);
+    return m ? { q: String(a * b), a: `${a} × ${b}` } : { q: `${a} × ${b}`, a: String(a * b) };
   }
   const [, band, w, dir] = id.split(':');
   const pool = poolOf(band);

@@ -36,7 +36,7 @@ export class GameCore {
     this.sessionQueue = new SessionQueue();
     this.nowFn = now;
     this.source = new QuestionSource({
-      subject, scope, rng: this.rng, sessionQueue: this.sessionQueue, notes: this.notes, now,
+      subject, scope, rng: this.rng, sessionQueue: this.sessionQueue, notes: this.notes, now, mirror: !!this.rules.mirror,
     });
 
     this.t = 0;
