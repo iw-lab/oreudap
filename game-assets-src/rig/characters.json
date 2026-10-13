@@ -1,5 +1,5 @@
 {
- "_": "오르답 v2 — 캐릭터 = Firefly 3D + 뼈대 + CMU 모캡(점프 02_04 · 만세 79_69 · 시무룩 79_71). 2026-10-13. 굽기 = python3 ~/.claude/skills/game-builder/tools/rig-characters.py → python3 tools/process-assets.py · cheer·sad 구간은 티샷 아일랜드 골퍼에서 검증된 값",
+ "_": "오르답 v2 — 캐릭터 = Firefly 3D + 뼈대 + CMU 모캡(점프 02_04 · 만세 79_69 · 시무룩 79_71). 2026-10-13. 굽기 = python3 ~/.claude/skills/game-builder/tools/rig-characters.py → python3 tools/process-assets.py · cheer·sad 구간은 티샷 아일랜드 골퍼에서 검증된 값 · BL_CROTCH_MIN 0.07 = 귀 긴 2등신(가랑이 키의 ~10%) 허용",
  "characters": [
   {
    "id": "fox",
@@ -35,6 +35,9 @@
      "start": 250,
      "end": 330
     }
+   },
+   "env": {
+    "BL_CROTCH_MIN": "0.07"
    }
   },
   {
@@ -71,6 +74,9 @@
      "start": 250,
      "end": 330
     }
+   },
+   "env": {
+    "BL_CROTCH_MIN": "0.07"
    }
   },
   {
@@ -107,6 +113,9 @@
      "start": 250,
      "end": 330
     }
+   },
+   "env": {
+    "BL_CROTCH_MIN": "0.07"
    }
   },
   {
@@ -143,6 +152,9 @@
      "start": 250,
      "end": 330
     }
+   },
+   "env": {
+    "BL_CROTCH_MIN": "0.07"
    }
   },
   {
@@ -179,6 +191,9 @@
      "start": 250,
      "end": 330
     }
+   },
+   "env": {
+    "BL_CROTCH_MIN": "0.07"
    }
   },
   {
@@ -215,6 +230,9 @@
      "start": 250,
      "end": 330
     }
+   },
+   "env": {
+    "BL_CROTCH_MIN": "0.07"
    }
   },
   {
@@ -251,6 +269,9 @@
      "start": 250,
      "end": 330
     }
+   },
+   "env": {
+    "BL_CROTCH_MIN": "0.07"
    }
   }
  ],

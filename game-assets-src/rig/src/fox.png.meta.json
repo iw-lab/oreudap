@@ -1,0 +1,17 @@
+{
+ "prompt": "Generate an image (square 1:1 image): orange fox with white chest and white tail tip, big fluffy tail, small green backpack straps, front view, full body with both feet visible, single isolated character, centered, about 10% margin on every side, standing in a T-pose, both arms stretched straight out horizontally to the sides, legs slightly apart, facing the camera, cute chibi animal mascot game c",
+ "out": "/Users/sim-insu/Documents/dev/muhan/game-assets-src/rig/src/fox.png",
+ "t0": 1791857165.302621,
+ "refs": [
+  "/Users/sim-insu/Documents/dev/muhan/public/assets/images/char-fox.webp"
+ ],
+ "w": 1254,
+ "h": 1254,
+ "src": "blob:https://chatgpt.com/462ec46d-cf5e-471f-b365-61a1b12b9a51",
+ "bytes": "data-uri(data:image/png;base64)",
+ "verify": "1254x1254 · 2,064,352바이트",
+ "elapsed_s": 75.3,
+ "conversation": "https://chatgpt.com/c/6acd9119-6030-83e8-ac15-a8e2b75843d2",
+ "served_by": "chatgpt-web(모델 미노출 — 서버가 정한다)",
+ "attempts": 1
+}

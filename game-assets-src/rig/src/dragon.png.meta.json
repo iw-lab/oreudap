@@ -1,0 +1,17 @@
+{
+ "prompt": "Generate an image (square 1:1 image): small friendly green baby dragon, cream belly, tiny wings on the back, little rounded horns, short tail, front view, full body with both feet visible, single isolated character, centered, about 10% margin on every side, standing in a T-pose, both arms stretched straight out horizontally to the sides, legs slightly apart, facing the camera, cute chibi animal ma",
+ "out": "/Users/sim-insu/Documents/dev/muhan/game-assets-src/rig/src/dragon.png",
+ "t0": 1791857423.1455529,
+ "refs": [
+  "/Users/sim-insu/Documents/dev/muhan/public/assets/images/char-dragon.webp"
+ ],
+ "w": 1254,
+ "h": 1254,
+ "src": "blob:https://chatgpt.com/a459f21a-b128-4b30-a275-f52a87a1bef9",
+ "bytes": "data-uri(data:image/png;base64)",
+ "verify": "1254x1254 · 1,989,409바이트",
+ "elapsed_s": 75.4,
+ "conversation": "https://chatgpt.com/c/6acd9119-6030-83e8-ac15-a8e2b75843d2",
+ "served_by": "chatgpt-web(모델 미노출 — 서버가 정한다)",
+ "attempts": 1
+}

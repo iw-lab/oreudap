@@ -154,6 +154,34 @@
       "sha1": "8003eb00f8ac",
       "w": 720,
       "h": 1280
+    },
+    "zone-forest": {
+      "file": "zone-forest.webp",
+      "bytes": 129582,
+      "sha1": "cb14929589a6",
+      "w": 720,
+      "h": 1280
+    },
+    "zone-cloud": {
+      "file": "zone-cloud.webp",
+      "bytes": 52010,
+      "sha1": "0f8614d9b103",
+      "w": 720,
+      "h": 1280
+    },
+    "zone-space": {
+      "file": "zone-space.webp",
+      "bytes": 70194,
+      "sha1": "16b392271c2d",
+      "w": 720,
+      "h": 1280
+    },
+    "zone-lava": {
+      "file": "zone-lava.webp",
+      "bytes": 53206,
+      "sha1": "ce9784d8b5dd",
+      "w": 720,
+      "h": 1280
     }
   },
   "themePlatform": {
@@ -241,7 +269,8 @@
       "m4a": "wrong.m4a"
     }
   },
+  "rig": {},
   "audioBytes": 2439616,
   "eagerAudioBytes": 884508,
-  "totalBytes": 497844
+  "totalBytes": 802836
 }
