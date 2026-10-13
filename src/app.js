@@ -107,6 +107,8 @@ export class App {
     this.sound = new Sound(() => this.data.settings.sound, scene, []);
     // 영어 낱말은 귀로도 만난다 — 파일 943개, 없는 낱말은 브라우저 음성.
     this.voice = new Say(() => this.data.settings.sound, SAY_WORDS);
+    // 낭독은 Phaser 의 WebAudio 컨텍스트로 — 디코드해 둔 소리를 문제가 뜨는 순간 바로 튼다(HTMLAudio 는 시작이 수백 ms 늦다)
+    this.voice.useContext(() => { const m = this.sound.scene && this.sound.scene.sound; return (m && m.context) || null; });
     this.autoBot = null;      // 스모크·플레이테스트 전용
     // 반응(주스) — 소리는 기존 Sound 로(이중 재생 방지), 진동은 소리 설정을 그대로 따른다.
     this.ticket = null;       // 이번 판 학교 점수 영수증(gbGate) — 허브가 없으면 null
@@ -416,6 +418,17 @@ export class App {
     this.core.start();
     this.onQuestion();
     this.lastFrame = performance.now();
+    this.warmVoice();
+  }
+
+  /** 영어 과목이면 이번 판에 나올 수 있는 낱말 소리를 뒤에서 받아 둔다 — 쉬운 등급(먼저 나올 것)부터 */
+  warmVoice() {
+    const src = this.core && this.core.source;
+    if (!src || !String(this.subject).startsWith('words')) return;
+    const words = src.items.filter((it) => it.entry && it.entry.w)
+      .sort((a, b) => a.tier - b.tier).map((it) => it.entry.w);
+    // 첫 문제 «뒤»에 — 첫 화면·첫 문제 전송량(D25)은 그대로 둔다
+    setTimeout(() => this.voice.warm(words), 400);
   }
 
   endRun(silent) {

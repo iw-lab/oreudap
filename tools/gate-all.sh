@@ -51,6 +51,7 @@ run "보기 맞춤 (D43)"                  node tools/qa-choice-fit.mjs --dir di
 run "플레이 QA (D13·D14·D21·D22·D29·D36)" node tools/qa-play.mjs --dir dist
 run "BGM 강도 (D31)"                   node tools/qa-bgm.mjs --dir dist
 run "영어 발음 (D32)"                  node tools/qa-voice.mjs --dir dist
+run "낭독 지연 (D32b)"                node tools/qa-voice-latency.mjs --dir dist
 run "모드 화면 (D34)"                  node tools/qa-modes.mjs --dir dist
 run "놀이 방법 (D35)"                  node tools/qa-howto.mjs --dir dist
 run "재방문·재미 (D37~D40)"     node tools/qa-retention.mjs --dir dist

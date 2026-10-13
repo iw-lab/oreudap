@@ -13,7 +13,7 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { WORDS_G34 } from '../src/data/words-g34.js';
 import { WORDS_G56 } from '../src/data/words-g56.js';
 
@@ -30,6 +30,15 @@ const TRIM = 'silenceremove=start_periods=1:start_silence=0.08:start_threshold=-
 const dur = (f) => Number(execFileSync('ffprobe', ['-v', 'error', '-show_entries', 'format=duration',
   '-of', 'csv=p=0', f]).toString().trim());
 
+// 🔴 원본이 «무음»인 낱말이 있다(EchoTale 원본 75개가 0.36초·최대 -55dB — TTS 가 소리 없이 구워졌다).
+//    그대로 넣으면 파일이 «있는» 낱말이라 브라우저 음성 폴백도 안 타서 아이 입장에선 그 낱말만 조용하다
+//    (2026-10-13 발견: 258바이트 m4a 24개 · two·sea·card…). 최대 음량이 -30dB 미만이면 «파일 없음»으로 친다.
+const peakDb = (f) => {
+  const out = spawnSync('ffmpeg', ['-hide_banner', '-i', f, '-af', 'volumedetect', '-f', 'null', '-'], { encoding: 'utf8' }).stderr || '';
+  const m = out.match(/max_volume:\s*(-?[\d.]+) dB/);
+  return m ? Number(m[1]) : -Infinity;
+};
+
 function encode(src, dst, filter) {
   execFileSync('ffmpeg', ['-v', 'error', '-y', '-i', src,
     ...(filter ? ['-af', filter] : []), '-c:a', 'aac', '-b:a', '32k', '-ac', '1', '-ar', '24000', dst]);
@@ -44,6 +53,7 @@ function main() {
 
   const made = [];
   const missing = [];
+  const silent = [];
   let retrimmed = 0;
   let bytes = 0;
   for (const w of (LIMIT ? words.slice(0, LIMIT) : words)) {
@@ -51,6 +61,7 @@ function main() {
     if (!have.has(key)) { missing.push(w); continue; }
     const src = path.join(SRC, `${key}.mp3`);
     const dst = path.join(OUT, `${key}.m4a`);
+    if (peakDb(src) < -30) { silent.push(w); if (fs.existsSync(dst)) fs.unlinkSync(dst); continue; }
     encode(src, dst, TRIM);
     if (dur(dst) < 0.25) { encode(src, dst, null); retrimmed += 1; }   // 과다 절단 — 자르지 않고 다시
     bytes += fs.statSync(dst).size;
@@ -67,6 +78,7 @@ function main() {
   console.log(`\n── 낱말 발음 반입 ──`);
   console.log(`  · 오르답 낱말 ${words.length}개 · 음성 확보 ${made.length}개 (${(made.length / words.length * 100).toFixed(1)}%)`);
   console.log(`  · 합계 ${(bytes / 1024 / 1024).toFixed(2)}MB · 평균 ${Math.round(bytes / made.length / 1024 * 10) / 10}KB`);
+  if (silent.length) console.log(`  · 원본이 무음이라 뺀 낱말 ${silent.length}개(브라우저 음성으로 읽는다): ${silent.slice(0, 12).join(', ')}`);
   if (retrimmed) console.log(`  · 과다 절단으로 무음제거 없이 다시 인코딩 ${retrimmed}개`);
   console.log(`  · 파일 없는 낱말 ${missing.length}개 — 브라우저 음성(speechSynthesis)이 읽는다`);
   if (missing.length) console.log(`    예: ${missing.slice(0, 12).join(', ')}`);

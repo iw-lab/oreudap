@@ -67,7 +67,7 @@ const snapshot = () => {
     headroom: (() => {
       if (!sc.row.length) return null;
       const top = Math.min(...sc.row.map((p) => p.y + p.displayHeight / 2));
-      const head = sc.char.y - sc.char.displayHeight;
+      const head = sc.charHeadY ? sc.charHeadY() : sc.char.y - sc.char.displayHeight;   // 리그 = 그려진 머리(투명 여백·pivot 제외)
       return +(head - top).toFixed(1);
     })(),
     pose: sc.charTextureKey(),

@@ -340,7 +340,7 @@
     },
     {
       "file": "say/*.m4a",
-      "count": 943,
+      "count": 918,
       "license": "self-generated",
       "source": "EchoTale(iwenglish) public/seed/_words 의 낱말 발음(OpenAI gpt-4o-mini-tts, voice: nova)을 무음 제거·loudnorm·AAC 32k 모노로 재인코딩(tools/import-word-audio.mjs). 같은 제작자의 자산.",
       "date": "2026-09-05"

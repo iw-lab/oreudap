@@ -603,7 +603,36 @@ export class WorldScene extends Phaser.Scene {
   }
 
   /** QA 훅: 지금 캐릭터가 쓰고 있는 텍스처 키 */
-  charTextureKey() { return this.char && this.char.scene ? this.char.texture.key : null; }
+  /** QA 훅: 캐릭터 «그려진» 머리 꼭대기(세계 y). 리그 프레임은 위쪽이 투명 여백이고 발이 pivot 이라
+   *  `y - displayHeight` 로는 머리를 못 잰다 — 지금 프레임의 첫 불투명 줄을 찾는다(프레임마다 1회, 캐시) */
+  charHeadY() {
+    const c = this.char;
+    if (!c || !c.scene) return null;
+    if (!c.__rig) return c.y - c.displayHeight;
+    const f = c.frame;
+    this._topFrac = this._topFrac || new Map();
+    const key = `${f.texture.key}:${f.name}`;
+    if (!this._topFrac.has(key)) {
+      const img = f.source.image;
+      const cv = document.createElement('canvas'); cv.width = f.cutWidth; cv.height = f.cutHeight;
+      const g = cv.getContext('2d', { willReadFrequently: true });
+      g.drawImage(img, f.cutX, f.cutY, f.cutWidth, f.cutHeight, 0, 0, f.cutWidth, f.cutHeight);
+      const d = g.getImageData(0, 0, f.cutWidth, f.cutHeight).data;
+      let top = f.cutHeight;
+      for (let y = 0; y < f.cutHeight && top === f.cutHeight; y++) {
+        for (let x = 0; x < f.cutWidth; x++) if (d[(y * f.cutWidth + x) * 4 + 3] > 40) { top = y; break; }
+      }
+      this._topFrac.set(key, top / f.cutHeight);
+    }
+    return c.y - c.originY * c.displayHeight + this._topFrac.get(key) * c.displayHeight;
+  }
+
+  /** QA 훅: 지금 «자세» — 옛 그림은 텍스처 키(char-fox-jump), 리그는 애니 이름(fox-jump). 둘 다 «-jump» 로 끝나면 도약 자세 */
+  charTextureKey() {
+    if (!this.char || !this.char.scene) return null;
+    if (this.char.__rig) return this.char.anims && this.char.anims.currentAnim ? this.char.anims.currentAnim.key : this.char.texture.key;
+    return this.char.texture.key;
+  }
   /** QA 훅: 리그 애니 이름·프레임 이름 */
   charAnim() { return this.char && this.char.scene ? { rig: this.char.__rig || null, anim: this.char.anims && this.char.anims.currentAnim ? this.char.anims.currentAnim.key : null, frame: this.char.frame ? this.char.frame.name : null } : null; }
 
