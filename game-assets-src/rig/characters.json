@@ -3,7 +3,7 @@
  "characters": [
   {
    "id": "fox",
-   "src": "game-assets-src/rig/src/fox.png",
+   "src": "game-assets-src/rig/src/fox-v2.png",
    "shape": "human",
    "actions": [
     "idle",
@@ -38,7 +38,8 @@
    },
    "env": {
     "BL_CROTCH_MIN": "0.07"
-   }
+   },
+   "note": "v1 원화는 옆으로 뻗은 꼬리·가방끈이 팔 띠를 가려 리그 실패 → 꼬리 내림·가방 없는 v2"
   },
   {
    "id": "rabbit",
@@ -116,8 +117,10 @@
     }
    },
    "env": {
-    "BL_CROTCH_MIN": "0.02"
-   }
+    "BL_CROTCH_MIN": "0.02",
+    "BL_JUMP_MIN": "-0.01"
+   },
+   "note": "다리가 거의 없는 펭귄 — 점프 높이는 WorldScene 트윈이 만든다"
   },
   {
    "id": "cat",
@@ -235,7 +238,8 @@
    },
    "env": {
     "BL_CROTCH_MIN": "0.07",
-    "BL_HAND_UP": "0.05"
+    "BL_HAND_UP": "0.05",
+    "BL_JUMP_MIN": "-0.01"
    }
   },
   {
@@ -274,8 +278,10 @@
     }
    },
    "env": {
-    "BL_CROTCH_MIN": "0.07"
-   }
+    "BL_CROTCH_MIN": "0.07",
+    "BL_JUMP_MIN": "-0.01"
+   },
+   "note": "꼬리가 바닥에 닿아 최저점이 안 뜬다 — 게임 속 점프 높이는 WorldScene 트윈이 만든다(점프 액션 = 웅크렸다 펴기)"
   }
  ],
  "exempt": {}

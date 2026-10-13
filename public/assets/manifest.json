@@ -15,62 +15,6 @@
       "w": 384,
       "h": 384
     },
-    "char-rabbit": {
-      "file": "char-rabbit.webp",
-      "bytes": 24508,
-      "sha1": "298c43fec840",
-      "w": 384,
-      "h": 384
-    },
-    "char-rabbit-jump": {
-      "file": "char-rabbit-jump.webp",
-      "bytes": 24484,
-      "sha1": "771ae89be135",
-      "w": 384,
-      "h": 384
-    },
-    "char-penguin": {
-      "file": "char-penguin.webp",
-      "bytes": 19602,
-      "sha1": "a96c837aaf0e",
-      "w": 384,
-      "h": 384
-    },
-    "char-penguin-jump": {
-      "file": "char-penguin-jump.webp",
-      "bytes": 19940,
-      "sha1": "e12df5a905b9",
-      "w": 384,
-      "h": 384
-    },
-    "char-bear": {
-      "file": "char-bear.webp",
-      "bytes": 19500,
-      "sha1": "fb7338aeed47",
-      "w": 384,
-      "h": 384
-    },
-    "char-bear-jump": {
-      "file": "char-bear-jump.webp",
-      "bytes": 22390,
-      "sha1": "4bc4a3a54ae7",
-      "w": 384,
-      "h": 384
-    },
-    "char-owl": {
-      "file": "char-owl.webp",
-      "bytes": 23174,
-      "sha1": "9de84da6e63b",
-      "w": 384,
-      "h": 384
-    },
-    "char-owl-jump": {
-      "file": "char-owl-jump.webp",
-      "bytes": 24066,
-      "sha1": "77c3ba0a532e",
-      "w": 384,
-      "h": 384
-    },
     "char-dragon": {
       "file": "char-dragon.webp",
       "bytes": 23282,
@@ -256,6 +200,34 @@
     }
   },
   "rig": {
+    "rabbit": {
+      "png": "rabbit.png",
+      "json": "rabbit.json",
+      "bytes": 1210848,
+      "sha1": "90fa96b42097",
+      "size": [
+        3072,
+        1024
+      ],
+      "frame": [
+        256,
+        256
+      ]
+    },
+    "penguin": {
+      "png": "penguin.png",
+      "json": "penguin.json",
+      "bytes": 1326226,
+      "sha1": "0cfc5c4db91c",
+      "size": [
+        3072,
+        1024
+      ],
+      "frame": [
+        256,
+        256
+      ]
+    },
     "cat": {
       "png": "cat.png",
       "json": "cat.json",
@@ -269,9 +241,37 @@
         256,
         256
       ]
+    },
+    "bear": {
+      "png": "bear.png",
+      "json": "bear.json",
+      "bytes": 1548985,
+      "sha1": "911a38acf453",
+      "size": [
+        3072,
+        1024
+      ],
+      "frame": [
+        256,
+        256
+      ]
+    },
+    "owl": {
+      "png": "owl.png",
+      "json": "owl.json",
+      "bytes": 1525920,
+      "sha1": "03d3b645ba6a",
+      "size": [
+        3072,
+        1024
+      ],
+      "frame": [
+        256,
+        256
+      ]
     }
   },
   "audioBytes": 2439616,
   "eagerAudioBytes": 884508,
-  "totalBytes": 743016
+  "totalBytes": 565352
 }

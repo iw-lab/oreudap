@@ -1,6 +1,6 @@
 {
  "rabbit": {
-  "ok": false,
+  "ok": true,
   "shape": "human",
   "actions": [
    "idle",
@@ -10,9 +10,144 @@
   ],
   "dir": "S",
   "src": "game-assets-src/rig/src/rabbit.png",
-  "ts": "2026-10-13T11:03:33",
+  "ts": "2026-10-13T13:44:56",
   "srcSha": "ba99842853cd3b4f",
-  "why": "뼈대(creature) 게이트 FAIL",
-  "log": "\n[bl] 어깨 웨이트 섞기 10회 · 띠 정점 1414\n[bl] 머리 폭 ±0.61 · 팔을 따르는 머리 정점 0\n[bl] 팔 내림 L: 처음 82° · 손 0.267 m 내려감(기대 0.270 m)\n[bl] 팔 내림 R: 처음 82° · 손 0.266 m 내려감(기대 0.270 m)\n[bl] T 포즈 휴지 — 절차 액션에서 팔 내림 L -62° · R -62°\n[bl] 리그 rig.glb — 뼈 14 · 액션 ['idle'] · 정점 4725 · 1087KB\n❌ [gate] 랜드마크 순서가 사람형이 아니다 {'H': np.float64(1.8), 'crotch': np.float64(0.191), 'shoulder': np.float64(0.636), 'neck': np.float64(0.833), 'legX': 0.198, 'shoulderX': 0.233, 'handL': [0.595, -0.149, 0.663], 'handR': [-0.595, -0.176, 0.661]}\n❌ [gate] FAIL 1건 — 리포트 /Users/sim-insu/Documents/dev/muhan/game-assets-src/rig/work/rabbit/rig.json\n"
+  "glb": "game-assets-src/rig/ff/rabbit.glb",
+  "glbSha": "170e0120fcb4390d",
+  "atlas": "public/assets/rig/rabbit.png",
+  "atlasSha": "06812d7892f4943d",
+  "frames": 12,
+  "size": 256,
+  "replaces": [
+   "public/assets/images/char-rabbit.webp",
+   "public/assets/images/char-rabbit-jump.webp"
+  ]
+ },
+ "fox": {
+  "ok": false,
+  "shape": "human",
+  "actions": [
+   "idle",
+   "jump",
+   "cheer",
+   "sad"
+  ],
+  "dir": "S",
+  "src": "game-assets-src/rig/src/fox-v2.png",
+  "ts": "2026-10-13T13:36:44",
+  "why": "Firefly 3D(img3d.py) 실패",
+  "log": "[   0s]    🚦 Firefly 자리 대기 — 계정 전체 동시 3개 꽉 참(0s) · c04.t1.mp4, scorpionKing.png, kiteCrow.ff.glb\n[  36s] [3d] 탭 연결\n[  39s] [3d] 보드 대기 https://firefly.adobe.com/boards/new?referrer_app=firefly-web\n[  65s] [3d] 보드: https://firefly.adobe.com/boards/new?referrer_app=firefly-web · 확대 50% · «제목 없음 - 2026년 10월 13일 13.37.31»\n[  65s] [1/1] fox-v2.png → fox.ff.glb\n[  99s]    3D 생성 23s\n[ 401s]    내보내기 가로채기 실패 (링크가 안 만들어짐)\n[ 401s]    ❌ rc=6\n[ 478s]    🧹 보드 «제목 없음 - 2026년 10월 13일 13.37.31» 삭제(휴지통)\n❌ Firefly 3D 실패 rc=5(생성 실패/시간 초과) — 다른 엔진으로 폴백하지 않는다. 브릿지 로그를 보고 고칠 것\n"
+ },
+ "penguin": {
+  "ok": true,
+  "shape": "human",
+  "actions": [
+   "idle",
+   "jump",
+   "cheer",
+   "sad"
+  ],
+  "dir": "S",
+  "src": "game-assets-src/rig/src/penguin.png",
+  "ts": "2026-10-13T13:46:40",
+  "srcSha": "4190743e53146bfa",
+  "glb": "game-assets-src/rig/ff/penguin.glb",
+  "glbSha": "14a77283b1861579",
+  "atlas": "public/assets/rig/penguin.png",
+  "atlasSha": "6d54fb250cf30769",
+  "frames": 12,
+  "size": 256,
+  "replaces": [
+   "public/assets/images/char-penguin.webp",
+   "public/assets/images/char-penguin-jump.webp"
+  ]
+ },
+ "cat": {
+  "ok": true,
+  "shape": "human",
+  "actions": [
+   "idle",
+   "jump",
+   "cheer",
+   "sad"
+  ],
+  "dir": "S",
+  "src": "game-assets-src/rig/src/cat.png",
+  "ts": "2026-10-13T11:48:04",
+  "srcSha": "b1cd3f5b9ce2fc29",
+  "glb": "game-assets-src/rig/ff/cat.glb",
+  "glbSha": "a7f636924a3a4f70",
+  "atlas": "public/assets/rig/cat.png",
+  "atlasSha": "fcfcb8e7bfb510ec",
+  "frames": 12,
+  "size": 256,
+  "replaces": [
+   "public/assets/images/char-cat.webp",
+   "public/assets/images/char-cat-jump.webp"
+  ]
+ },
+ "bear": {
+  "ok": true,
+  "shape": "human",
+  "actions": [
+   "idle",
+   "jump",
+   "cheer",
+   "sad"
+  ],
+  "dir": "S",
+  "src": "game-assets-src/rig/src/bear.png",
+  "ts": "2026-10-13T13:06:40",
+  "srcSha": "5fa7aec155d55108",
+  "glb": "game-assets-src/rig/ff/bear.glb",
+  "glbSha": "b6d89f83c2d9f2fe",
+  "atlas": "public/assets/rig/bear.png",
+  "atlasSha": "9fc2304b95950945",
+  "frames": 12,
+  "size": 256,
+  "replaces": [
+   "public/assets/images/char-bear.webp",
+   "public/assets/images/char-bear-jump.webp"
+  ]
+ },
+ "owl": {
+  "ok": true,
+  "shape": "human",
+  "actions": [
+   "idle",
+   "jump",
+   "cheer",
+   "sad"
+  ],
+  "dir": "S",
+  "src": "game-assets-src/rig/src/owl.png",
+  "ts": "2026-10-13T13:49:10",
+  "srcSha": "26939bc79f71eebc",
+  "glb": "game-assets-src/rig/ff/owl.glb",
+  "glbSha": "49e774be62b2cea5",
+  "atlas": "public/assets/rig/owl.png",
+  "atlasSha": "3fe82b78a81088d1",
+  "frames": 12,
+  "size": 256,
+  "replaces": [
+   "public/assets/images/char-owl.webp",
+   "public/assets/images/char-owl-jump.webp"
+  ]
+ },
+ "dragon": {
+  "ok": false,
+  "shape": "human",
+  "actions": [
+   "idle",
+   "jump",
+   "cheer",
+   "sad"
+  ],
+  "dir": "S",
+  "src": "game-assets-src/rig/src/dragon.png",
+  "ts": "2026-10-13T13:48:45",
+  "srcSha": "5d9a245b25b673d1",
+  "why": "모캡(mocap) 게이트 FAIL",
+  "log": "[bl] 대상 뼈대 = rig.py\n[bl] 자동 구간 jump: 정점 144f → 76~211f (1.12초)\n[bl] 원본 움직임 최대 156.2°\n[bl] 바닥 고정 — 최대 65.9 cm 들어 올림\n[bl] 리타깃 jump — 원본 76~211f → 13f · 방향 오차 평균 0.0°\n[bl] jump 검사 — 최저점 최대 -0.000 · 폭 최대 1.00배\n[bl] mc_jump.glb — 액션 ['idle', 'jump'] · 발 앞뒤 차 -0.49~0.00\n❌ [gate] 점프인데 몸이 안 뜬다(최저점 최대 -0.000 < 키 0%) — 엉덩이 높이 옮기기·구간\n❌ [gate] FAIL 1건 — 리포트 /Users/sim-insu/Documents/dev/muhan/game-assets-src/rig/work/dragon/mc_jump.json\n"
  }
 }
