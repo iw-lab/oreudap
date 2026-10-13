@@ -173,7 +173,7 @@ function renderQuiz() {
         <div class="gb-seg">${[['math', '수학'], ['eng', '영어']].map(([v, t]) => `<button class="gb-pill ${pref.s === v ? 'on' : ''}" data-subj="${v}">${t}</button>`).join('')}</div>
         <div class="gb-seg">${grades.join('')}</div></div>`}
       ${body}
-      <p class="gb-msg">${qz.msg}</p>
+      <p class="gb-msg" data-frac-ok>${qz.msg}</p>
       <div class="gb-btns">
         <button class="gb-btn" data-qgo ${qz.busy ? 'disabled' : ''}>${goLabel}</button>
         <button class="gb-btn ghost" data-qback>${quizThen ? '취소' : '닫기'}</button>
@@ -203,8 +203,8 @@ async function submitPack() {
     if (gen !== qGen) return;
     if (j.error) throw new Error(j.error);
     qz.review = pack.qs.map((q, k) => `<div class="${j.right[k] ? 'ok' : 'no'}">${gbIcon(j.right[k] ? 'check' : 'x', j.right[k] ? 'gb-ic-ok' : 'gb-ic-no')} ${fracHTML(q.text.replace('= ?', '').replace('→ ?', '→'))} <b>${fracHTML(q.choices[j.answers[k]])}</b></div>`).join('');
-    if (j.ticket) { qz.passed = true; qz.msg = `${gbIcon('sparkle')} ${j.correct}/${j.total} 정답! <b>이용권 +${j.ticket}</b> (지금 ${j.tix}장)`; opt.sfx?.win?.(); }
-    else { qz.passed = false; qz.msg = `${j.correct}/${j.total} — <b>${j.pass}개</b> 이상 맞히면 이용권! 다시 도전해요`; }
+    if (j.ticket) { qz.passed = true; qz.msg = `${gbIcon('sparkle')} ${j.total}문제 중 ${j.correct}문제 정답! <b>이용권 +${j.ticket}</b> (지금 ${j.tix}장)`; opt.sfx?.win?.(); }
+    else { qz.passed = false; qz.msg = `${j.total}문제 중 ${j.correct}문제 — <b>${j.pass}개</b> 이상 맞히면 이용권! 다시 도전해요`; }
   } catch {
     // 🔴 채점 서버만 죽어도 이용권 0 인 아이가 갇힌다 — 시작 관문에서 왔으면 «그냥 하기» 출구(교차검증 codex)
     qz.msg = quizThen ? '채점 서버가 잠시 대답이 없어요. <button class="gb-link" data-qfree>학교 점수 없이 그냥 하기</button>' : '채점 서버가 잠시 대답이 없어요. 조금 뒤에 다시 해 주세요.';
