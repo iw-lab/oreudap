@@ -92,6 +92,59 @@ function engQ(rnd, grade) {
   return { text: `${ko} → ?`, answer: en, wrong };
 }
 
+// 🎵 음악 과목(1.2.0 · 2026-10-14 휘휘! 숲속 오케스트라 «음악도 추가해서»).
+//    초등 음악은 3학년부터 교과 — 1·2학년이 오면 3학년 문항을 낸다(클라이언트도 3학년부터만 고르게 한다).
+//    학년마다 «그 학년까지 배운 것»만: 3 셈여림표 p·f·mp·mf · 2·3·4박자 · 음표 길이 · 악기군 /
+//    4 crescendo·decrescendo · 빠르기말 · 늘임표·도돌이표 · 점음표 / 5 pp·ff · 6/8박자 · 관현악 악기 · 명곡과 작곡가 /
+//    6 rit.·accel.·a tempo · 지휘 도형 · 음역.
+//    🔴 오답은 «같은 종류»에서만 뽑는다(셈여림 뜻 문제에 악기 이름이 보기로 나오면 지우기만으로 맞힌다).
+const MUS = {
+  dyn: [['p', '여리게'], ['f', '세게'], ['mp', '조금 여리게'], ['mf', '조금 세게']],
+  dyn5: [['pp', '매우 여리게'], ['ff', '매우 세게'], ['p', '여리게'], ['f', '세게'], ['mp', '조금 여리게'], ['mf', '조금 세게']],
+  inst: [['바이올린', '현악기'], ['첼로', '현악기'], ['콘트라베이스', '현악기'], ['하프', '현악기'], ['플루트', '목관악기'], ['오보에', '목관악기'],
+    ['클라리넷', '목관악기'], ['바순', '목관악기'], ['트럼펫', '금관악기'], ['호른', '금관악기'], ['트롬본', '금관악기'], ['튜바', '금관악기'],
+    ['팀파니', '타악기'], ['큰북', '타악기'], ['트라이앵글', '타악기'], ['심벌즈', '타악기']],
+  tempo: [['알레그로(Allegro)', '빠르게'], ['모데라토(Moderato)', '보통 빠르게'], ['안단테(Andante)', '느리게']],
+  change: [['크레셴도(cresc.)', '점점 세게'], ['데크레셴도(decresc.)', '점점 여리게'], ['리타르단도(rit.)', '점점 느리게'], ['아첼레란도(accel.)', '점점 빠르게'], ['아 템포(a tempo)', '본래 빠르기로']],
+  works: [['운명 교향곡', '베토벤'], ['사계', '비발디'], ['호두까기 인형', '차이콥스키'], ['아이네 클라이네 나흐트무지크', '모차르트'],
+    ['동물의 사육제', '생상스'], ['페르 귄트 모음곡', '그리그'], ['놀람 교향곡', '하이든'], ['신세계 교향곡', '드보르자크'], ['카르멘', '비제']],
+};
+// 받침 따라 조사(은/는·을/를) — «바이올린» 는 같은 틀린 조사가 아이 화면에 나갔다(2026-10-14)
+const jo = (w, withB, noB) => { const h = [...w].reverse().find((c) => c >= '가' && c <= '힣'); return h && (h.charCodeAt(0) - 0xac00) % 28 !== 0 ? withB : noB; };
+function musicQ(rnd, grade) {
+  const R = (lo, hi) => lo + Math.floor(rnd() * (hi - lo + 1));
+  const pick = (a) => a[Math.floor(rnd() * a.length)];
+  const fromPairs = (pairs, ask, k = 0, v = 1) => {
+    const p = pick(pairs), ans = p[v];
+    const pool = [...new Set(pairs.filter((x) => x[v] !== ans).map((x) => x[v]))];
+    for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
+    return { text: ask(p[k]), answer: ans, wrong: pool.slice(0, 2) };
+  };
+  const g = Math.max(3, Math.min(6, grade));
+  const kinds = { 3: ['dyn', 'meter', 'note', 'inst'], 4: ['change4', 'tempo', 'dotted', 'inst', 'sign'], 5: ['dyn5', 'meter68', 'inst', 'works', 'low'], 6: ['change6', 'pattern', 'works', 'low', 'dyn5'] }[g];
+  const kind = pick(kinds);
+  if (kind === 'dyn') return fromPairs(MUS.dyn, (s) => `셈여림표 «${s}»의 뜻은?`);
+  if (kind === 'dyn5') return fromPairs(MUS.dyn5, (s) => `셈여림표 «${s}»의 뜻은?`);
+  if (kind === 'inst') { const r = fromPairs(MUS.inst, (s) => `«${s}»${jo(s, '은', '는')} 어느 악기군일까?`); return r; }
+  if (kind === 'tempo') return fromPairs(MUS.tempo, (s) => `빠르기말 «${s}»의 뜻은?`);
+  if (kind === 'change4') return fromPairs(MUS.change.slice(0, 2).concat([['늘임표(페르마타)', '음을 알맞게 늘여서']]), (s) => `«${s}»의 뜻은?`);
+  if (kind === 'change6') return fromPairs(MUS.change, (s) => `«${s}»의 뜻은?`);
+  if (kind === 'works') return fromPairs(MUS.works, (s) => `«${s}»${jo(s, '을', '를')} 지은 작곡가는?`);
+  if (kind === 'sign') return fromPairs([['도돌이표', '앞으로 되돌아가 다시 연주'], ['늘임표(페르마타)', '음을 알맞게 늘여서'], ['쉼표', '소리를 쉬기']], (s) => `«${s}»${jo(s, '은', '는')} 무엇을 뜻할까?`);
+  if (kind === 'meter') { const n = pick([2, 3, 4]); return { text: `${n}/4박자 한 마디에 4분음표는 몇 개 들어갈까?`, answer: String(n), wrong: [2, 3, 4, 6].filter((x) => x !== n).slice(0, 2).map(String) }; }
+  if (kind === 'meter68') { return { text: '6/8박자 한 마디에 8분음표는 몇 개 들어갈까?', answer: '6', wrong: pick([['3', '8'], ['4', '8'], ['3', '4']]) }; }
+  if (kind === 'note') { const [nm, n] = pick([['2분음표', 2], ['온음표', 4]]); return { text: `${nm}는 4분음표 몇 개만큼 길까?`, answer: String(n), wrong: [1, 2, 3, 4, 8].filter((x) => x !== n).sort(() => rnd() - 0.5).slice(0, 2).map(String) }; }
+  if (kind === 'dotted') { const [nm, n] = pick([['점4분음표', 3], ['점2분음표', 6]]); return { text: `${nm}는 8분음표 몇 개만큼 길까?`, answer: String(n), wrong: (n === 3 ? ['2', '4'] : ['4', '8']) }; }
+  if (kind === 'low') {
+    // 오답은 «같은 악기군의 높은 악기» — 다른 악기군 이름이면 문제를 안 읽어도 지워진다
+    const [fam, ans, w1, w2] = pick([['현악기', '콘트라베이스', '바이올린', '비올라'], ['금관악기', '튜바', '트럼펫', '호른'], ['목관악기', '바순', '플루트', '오보에']]);
+    return { text: `${fam} 가운데 가장 낮은 소리를 내는 악기는?`, answer: ans, wrong: [w1, w2] };
+  }
+  // pattern
+  const pt = pick([['3박자의 첫째 박', '아래로'], ['4박자의 넷째 박', '위로'], ['2박자의 둘째 박', '위로'], ['4박자의 첫째 박', '아래로']]);
+  return { text: `지휘할 때 ${pt[0]}은 지휘봉을 어느 쪽으로 저을까?`, answer: pt[1], wrong: ['아래로', '위로', '옆으로'].filter((x) => x !== pt[1]).slice(0, 2) };
+}
+
 // 한 판(시드)의 문항 전체를 통째로 만든다. 서버·클라·프로브가 같은 결과를 얻는다.
 // 🔴 count 기본값을 숫자로 적으면 QUIZ_AT 을 늘렸을 때 «호출부 N 곳 중 M 곳만» 갱신된다.
 //    (실제로 QUIZ_AT 을 3→6 으로 늘리자 서버·프로브·테스트가 3문항만 만들어 4~6번 카드가
@@ -102,12 +155,16 @@ export function makeQuestions(seed, { subject = 'math', grade = 2, count = 5 } =
   // 🔴 정답 «위치»가 시드만으로 정해지면, 문항을 하나도 모르는 사람이 위치만 재현해
   //    전부 맞힐 수 있다 — 서버가 «직접 채점»해도 소용이 없다(실측: eng/5 답을 math/2 로
   //    채점해도 6/6 이 나왔다). 과목·학년을 스트림에 섞어 판마다 위치가 달라지게 한다.
-  const salt = (0x51A7 * 0x9E3779B1) ^ (grade * 0x85EBCA6B) ^ (subject === 'eng' ? 0xC2B2AE35 : 0x27D4EB2F);
+  const salt = (0x51A7 * 0x9E3779B1) ^ (grade * 0x85EBCA6B) ^ (subject === 'eng' ? 0xC2B2AE35 : subject === 'music' ? 0x165667B1 : 0x27D4EB2F);
   const R = createRng((seed ^ salt) >>> 0), rnd = R.next;
   const deck = makePositionDeck(rnd);
-  const out = [];
+  const out = [], seen = new Set();
+  const gen = () => (subject === 'eng' ? engQ(rnd, grade) : subject === 'music' ? musicQ(rnd, grade) : mathQ(rnd, grade));
   for (let i = 0; i < count; i++) {
-    const q = subject === 'eng' ? engQ(rnd, grade) : mathQ(rnd, grade);
+    // 같은 문항은 다시 뽑는다(같은 시드 = 같은 결과는 그대로) — 음악 3학년 5문제에 «3/4박자…»가 세 번 나왔다(2026-10-14)
+    let q = gen();
+    for (let k = 0; k < 24 && seen.has(q.text); k++) q = gen();
+    seen.add(q.text);
     const pos = deck[i % deck.length];
     const choices = [...q.wrong];
     choices.splice(pos, 0, q.answer);

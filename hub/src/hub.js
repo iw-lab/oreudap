@@ -41,7 +41,7 @@ export const SCHEMA = [
 ];
 
 const json = (body, status = 200) => ({ status, body });
-const SUBJ = ['math', 'eng'];
+const SUBJ = ['math', 'eng', 'music'];
 const dup = (e) => /UNIQUE|PRIMARY|constraint/i.test(String(e?.message || e));
 
 export class Hub {
@@ -92,7 +92,8 @@ export class Hub {
       // 결과가 들어간 표는 score_close 트리거가 'done' 으로 닫아 여기 WHERE 에 안 걸린다(환불+점수 동시 성공 차단)
       const r = await this.db.prepare(`UPDATE spent SET state = 'refunded' WHERE ref = ? AND dh = ? AND state = 'spent' AND at >= ?`)
         .bind(ref, dh, t - T.TICKET_REFUND_SEC * 1000).run();
-      return json({ ok: (r.meta?.changes | 0) === 1, tix: await this.tix(dh) });
+      // 🔴 «=== 1» 이면 D1 에선 환불이 되고도 ok:false(트리거 행까지 세서 2) → 클라가 쓸데없이 결과를 보냈다(2026-10-14 숲속 오케스트라 배포본 실측)
+      return json({ ok: (r.meta?.changes | 0) >= 1, tix: await this.tix(dh) });
     }
     if (path === '/result') return json(await this.result(dh, body, day, week, t, String(body.iph || '')));
     if (path === '/select') {
@@ -192,7 +193,8 @@ export async function sqliteD1(file = ':memory:') {
       bind: (...a) => { args = a; return o; },
       first: async () => raw.prepare(sql).get(...args) ?? null,
       all: async () => ({ results: raw.prepare(sql).all(...args) }),
-      run: async () => { const r = raw.prepare(sql).run(...args); return { meta: { changes: Number(r.changes) } }; },
+      // D1 의 meta.changes 는 트리거가 바꾼 행까지 센다(실측: 트리거 1개 달린 UPDATE 1행 → changes 2) — node:sqlite changes 는 안 센다 → total_changes 차이로 D1 과 같게
+      run: async () => { const tc = () => Number(raw.prepare('SELECT total_changes() AS n').get().n); const a = tc(); raw.prepare(sql).run(...args); return { meta: { changes: tc() - a } }; },
       _exec: () => (/^\s*SELECT/i.test(sql) ? raw.prepare(sql).all(...args) : raw.prepare(sql).run(...args)),
     };
     return o;

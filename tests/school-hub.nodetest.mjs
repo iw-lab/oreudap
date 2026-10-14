@@ -124,3 +124,56 @@ test('HB-7 FREE_PLAY — 이용권 0장이어도 판 영수증이 나오고 학�
   const r = await call('/result', { dh, ref, won: true, iph: IPH });
   assert.equal(r.added, 2, '판 끝 학교 점수 정산: ' + JSON.stringify(r));
 });
+
+// HB-8 (1.2.0) — 음악 과목: 학년마다 문항이 만들어지고, 보기 3개가 서로 다르며 정답이 그 안에 있고, 정답 위치가 고르다
+test('HB-8 음악 과목 문항', async () => {
+  const { makeQuestions } = await import('../hub/shared/quiz.js');
+  const pos = [0, 0, 0];
+  const texts = new Set();
+  for (const grade of [1, 3, 4, 5, 6]) {
+    for (let seed = 1; seed <= 300; seed++) {
+      for (const q of makeQuestions(seed * 7919 + grade, { subject: 'music', grade, count: 6 })) {
+        assert.equal(q.choices.length, 3, '보기 3개: ' + JSON.stringify(q));
+        assert.equal(new Set(q.choices).size, 3, '보기 중복: ' + JSON.stringify(q));
+        assert.ok(q.answer >= 0 && q.answer < 3);
+        assert.ok(!/undefined|NaN/.test(q.text + q.choices.join()), '빈 값: ' + JSON.stringify(q));
+        pos[q.answer]++; texts.add(q.text);
+      }
+    }
+  }
+  const n = pos.reduce((a, b) => a + b, 0);
+  for (const c of pos) assert.ok(Math.abs(c / n - 1 / 3) < 0.03, '정답 위치 쏠림: ' + pos);
+  assert.ok(texts.size >= 40, '문항 종류가 너무 적다: ' + texts.size);
+  // 허브 출제 경로도 music 을 받는다(예전엔 SUBJ 에 없어 수학으로 바뀌었다)
+  const { dh, call } = await mk();
+  const p = await call('/pack', { dh, subject: 'music', grade: 4 });
+  assert.ok(p.qs.every((q) => !/[=×÷+]/.test(q.text)), '음악을 골랐는데 수학 문제: ' + p.qs.map((q) => q.text).join(' / '));
+});
+
+test('HB-Q 한 묶음 안 같은 문항 0 — 음악 3학년 5문제에 «3/4박자…»가 세 번 나왔다(2026-10-14 배포본)', async () => {
+  const { makeQuestions } = await import('../hub/shared/quiz.js');
+  const dup = [];
+  for (const subject of ['math', 'eng', 'music']) for (let grade = 1; grade <= 6; grade++) for (let seed = 0; seed < 400; seed++) {
+    const qs = makeQuestions(seed, { subject, grade, count: 5 });
+    if (new Set(qs.map((q) => q.text)).size !== qs.length) dup.push(`${subject}/${grade}/${seed}`);
+  }
+  assert.equal(dup.length, 0, `중복 문항 묶음 ${dup.length}개 — 예 ${dup.slice(0, 5).join(' ')}`);
+});
+
+test('HB-J 문항 조사 — 받침 따라 은/는·을/를, «낱말» 뒤 띄어쓰기 없음(«바이올린» 는 → «바이올린»은)', async () => {
+  const { makeQuestions } = await import('../hub/shared/quiz.js');
+  const bat = (w) => { const h = [...w].reverse().find((c) => c >= '가' && c <= '힣'); return h ? (h.charCodeAt(0) - 0xac00) % 28 !== 0 : false; };
+  const bad = new Set();
+  for (const subject of ['math', 'eng', 'music']) for (let grade = 1; grade <= 6; grade++) for (let seed = 0; seed < 300; seed++) for (const q of makeQuestions(seed, { subject, grade, count: 5 })) {
+    for (const m of q.text.matchAll(/«([^»]+)»(\s*)(은|는|을|를)(?=\s)/g)) {
+      const want = bat(m[1]) ? { 은: '은', 는: '은', 을: '을', 를: '을' }[m[3]] : { 은: '는', 는: '는', 을: '를', 를: '를' }[m[3]];
+      if (m[2] || m[3] !== want) bad.add(q.text);
+    }
+    if (/«[^»]+»\s+(의|은|는|을|를|이|가)\s/.test(q.text)) bad.add(q.text);
+  }
+  assert.equal(bad.size, 0, `조사 틀린 문항 ${bad.size}개 — 예 ${[...bad].slice(0, 4).join(' / ')}`);
+});
+
+test('HB-TTL 결과 허용 시간 ≥ 2시간 — 30분이면 긴 판(캠페인 연속·대연대기·연습 9홀 36분·하트가 차는 모드)의 학교 점수가 late 로 사라졌다(2026-10-14 19게임 전수)', () => {
+  assert.ok(T.RESULT_TTL_MIN >= 120, `RESULT_TTL_MIN ${T.RESULT_TTL_MIN}분`);
+});
