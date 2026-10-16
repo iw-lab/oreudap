@@ -215,3 +215,27 @@ test('HB-S 전체 순위(20개 넘게) · 통계 — 학교 수·기기 수·오
   const n = (await call('/top', {})).stats;
   assert.equal(n.today, 0); assert.equal(n.playsToday, 0); assert.equal(n.plays, 2); assert.equal(n.players, 2);
 });
+
+test('HB-S2 1.4.0 전에 쌓인 기록 — 처음 한 번 통계 표로 옮긴다(옛 허브를 올려도 0 으로 시작하지 않는다) · 통계 읽기는 표를 훑지 않는다', async () => {
+  const { hub, dh, dh2, call, earn } = await mk();
+  await earn(); await call('/select', { dh, school: SCHOOL }); await call('/spend', { dh, ref: 'ref:b1:0001' }); await earn(dh2);
+  // 옛 허브 흉내 — 통계 표와 표지를 비운다(트리거가 없던 시절)
+  for (const q of ['DELETE FROM cnt', 'DELETE FROM pact', 'DELETE FROM sch', 'DELETE FROM dact', 'DELETE FROM dplay']) await hub.db.prepare(q).run();
+  const h2 = new Hub({ db: hub.db, secret: 'test-key', now: hub.now });
+  const s = (await h2.handle('/top', {})).body.stats;
+  assert.deepEqual(s, { schools: 1, players: 2, plays: 1, today: 2, playsToday: 1 });
+  // 두 번째 허브는 다시 옮기지 않는다(표지) — 옮기면 표를 또 훑는다. 일부러 틀린 값을 넣어 두고 그대로인지 본다
+  await hub.db.prepare("UPDATE cnt SET n = 99 WHERE k = 'players'").run();
+  const h3 = new Hub({ db: hub.db, secret: 'test-key', now: hub.now }); await h3.init();
+  assert.equal((await hub.db.prepare("SELECT n FROM cnt WHERE k = 'players'").first()).n, 99, '표지가 있으면 다시 옮기지 않는다');
+});
+
+// HB-R — 허브 쿼리가 표를 통째로 훑지 않는다(D1/DO 무료 한도 하루 500만 행). 2026-10-16 1.4.0 첫 통계가 COUNT 로 훑다가 오케스트라 배포 게이트에 막혔다 — 키트 시험이 먼저 잡게.
+test('HB-R 허브 쿼리 전체 훑기 0(check-db-reads)', async () => {
+  const { execFileSync } = await import('node:child_process'); const { fileURLToPath } = await import('node:url'); const path = await import('node:path');
+  const here = path.dirname(fileURLToPath(import.meta.url));
+  const gate = path.join(process.env.HOME, '.claude/skills/game-builder/tools/check-db-reads.mjs');
+  const dir = path.join(here, '../hub');   // 키트 안이든 게임 안(tests/school-hub.nodetest.mjs)이든 tests/../hub
+  const out = execFileSync(process.execPath, [gate, dir], { encoding: 'utf8' });
+  assert.match(out, /전체 훑기 0/);
+});
