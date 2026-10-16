@@ -4,11 +4,14 @@
 //    workers.dev 주소로 바로 오는 요청은 403(IP 해시 머리글을 위조해 하루 상한을 비켜 가지 못하게).
 // 라우트: GET /school?q=&sido= · GET /schools?did= · POST /me|/select|/pack|/grade|/spend|/refund|/result  (본문 = {did, …})
 import { Hub } from './hub.js';
+export { HubDO } from './do.js';   // 저장소가 Durable Object(HUB_DO 바인딩)인 허브만 쓴다 — D1 허브엔 묶이지 않은 클래스로 남는다
 import { cleanQuery, isCode, isSido, isDid, searchUrl, codeUrl, parseNeis, ymdKst, shortName, didHash } from '../shared/school.js';
 
 const J = (body, status = 200, cacheSec = 0) => new Response(JSON.stringify(body), { status, headers: {
   'content-type': 'application/json; charset=utf-8', 'cache-control': cacheSec ? `public, max-age=${cacheSec}` : 'no-store' } });
 const hubOf = (env) => new Hub({ db: env.DB, secret: env.QUIZ_KEY, free: env.FREE_PLAY === '1' });
+// 저장소: D1(env.DB) 이 있으면 그대로, 없고 HUB_DO 가 있으면 Durable Object 하나에 맡긴다(같은 Hub 코드 · 같은 스키마·트리거)
+const handle = (env, path, body) => (env.DB || !env.HUB_DO ? hubOf(env).handle(path, body) : env.HUB_DO.get(env.HUB_DO.idFromName('hub')).handle(path, body));
 const POSTS = new Set(['/me', '/select', '/pack', '/grade', '/spend', '/refund', '/result']);
 
 async function neis(url, ctx) {   // NEIS 조회 — 엣지 캐시 7일(학교 목록은 거의 안 바뀐다). 장애면 null(캐시하지 않는다)
@@ -36,7 +39,7 @@ export default {
     }
     if (path === '/schools' && req.method === 'GET') {
       const did = url.searchParams.get('did') || '';
-      const r = await hubOf(env).handle('/top', isDid(did) ? { dh: await didHash(did) } : {});
+      const r = await handle(env, '/top', isDid(did) ? { dh: await didHash(did) } : {});
       return J(r.body, r.status);
     }
     if (req.method !== 'POST' || !POSTS.has(path)) return J({ error: 'not found' }, 404);
@@ -51,7 +54,7 @@ export default {
       if (!sch) return J({ error: list ? 'school' : 'neis' }, list ? 400 : 502);
       body.school = sch;
     }
-    const r = await hubOf(env).handle(path, body);
+    const r = await handle(env, path, body);
     return J(r.body, r.status);
   },
 };

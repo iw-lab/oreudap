@@ -125,7 +125,7 @@ async function flushPending() {
   try {
     const left = [];
     for (const p of pend) {
-      if (Date.now() - p.at > 25 * 60000) continue;   // 허브 RESULT_TTL(30분)을 넘기면 어차피 late
+      if (Date.now() - p.at > 170 * 60000) continue;   // 허브 RESULT_TTL(180분)을 넘기면 어차피 late
       try { await hubCall('result', { ref: p.ref, won: p.won }); } catch { left.push(p); }
     }
     hubSave({ pending: left });

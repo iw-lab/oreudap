@@ -38,7 +38,16 @@ export const SCHEMA = [
   `CREATE TRIGGER IF NOT EXISTS grade_give AFTER INSERT ON used
      BEGIN UPDATE dev SET correct = correct + NEW.c, tix = tix + NEW.t, packs = packs + 1 WHERE dh = NEW.dh; END`,
   `CREATE INDEX IF NOT EXISTS board_rank ON board (period, k, s DESC)`,
+  // 첫 화면 통계(1.4.0) — 오늘 이용 기기·판 수를 «오늘 시각 이후»로 세는 범위 읽기
+  `CREATE INDEX IF NOT EXISTS spent_at ON spent (at)`,
+  `CREATE INDEX IF NOT EXISTS used_at ON used (at)`,
 ];
+/** 첫 화면 순위 «더보기» 전체 목록 상한 — 학교 수가 이보다 많으면 위에서부터 이만큼(응답 크기 ≈ 60B × N) */
+export const RANK_ALL = 500;
+/** 통계는 이 시간만큼 한 번만 센다(첫 화면마다 표 전체를 훑지 않게) */
+export const STATS_TTL_MS = 60e3;
+/** KST 오늘 0시(ms) */
+export const kstDayStart = (ms) => { const d = new Date(ms + 9 * 3600e3); d.setUTCHours(0, 0, 0, 0); return d.getTime() - 9 * 3600e3; };
 
 const json = (body, status = 200) => ({ status, body });
 const SUBJ = ['math', 'eng', 'music'];
@@ -168,7 +177,7 @@ export class Hub {
   }
 
   async top(day, week, myCode) {
-    const list = async (period, k) => (await this.db.prepare('SELECT code, name, sido, s FROM board WHERE period = ? AND k = ? ORDER BY s DESC, code LIMIT 20').bind(period, k).all()).results
+    const list = async (period, k) => (await this.db.prepare(`SELECT code, name, sido, s FROM board WHERE period = ? AND k = ? ORDER BY s DESC, code LIMIT ${RANK_ALL}`).bind(period, k).all()).results
       .map((r) => ({ code: r.code, name: shortName(r.name), sido: SIDO[r.sido] || '', s: r.s }));
     const rank = async (period, k) => {
       if (!myCode) return null;
@@ -178,7 +187,27 @@ export class Hub {
       const next = await this.db.prepare('SELECT MIN(s) AS s FROM board WHERE period = ? AND k = ? AND s > ?').bind(period, k, me.s).first();
       return { rank: (above?.n | 0) + 1, s: me.s, gap: next?.s ? next.s - me.s : 0 };   // gap = 바로 위 학교까지 남은 점수(«다시 들어올 이유»)
     };
-    return { day, week, today: await list('d', day), weekly: await list('w', week), mine: myCode ? { today: await rank('d', day), weekly: await rank('w', week) } : null };
+    return { day, week, today: await list('d', day), weekly: await list('w', week), mine: myCode ? { today: await rank('d', day), weekly: await rank('w', week) } : null,
+      stats: await this.stats() };
+  }
+
+  /** 첫 화면 통계 — 모두 «합계 숫자»뿐(기기·학교 하나하나는 안 나간다).
+   *  schools = 학교를 정한 기기가 있는 학교 수 · players = 한 판이라도 하거나 문제를 푼 기기 수(계정이 없어 «학생»이 아니라 기기)
+   *  today = 오늘(KST) 판을 하거나 문제를 푼 기기 수 · playsToday / plays = 판 수(환불된 판 제외) */
+  async stats() {
+    const t = this.now();
+    if (this._st && t - this._st.at < STATS_TTL_MS) return this._st.v;
+    const t0 = kstDayStart(t), one = async (q, ...a) => ((await this.db.prepare(q).bind(...a).first())?.n) | 0;
+    try {
+      const v = {
+        schools: await one("SELECT COUNT(DISTINCT school) AS n FROM dev WHERE school IS NOT NULL AND school != ''"),
+        players: await one('SELECT COUNT(*) AS n FROM (SELECT dh FROM spent UNION SELECT dh FROM used)'),
+        today: await one('SELECT COUNT(*) AS n FROM (SELECT dh FROM spent WHERE at >= ? UNION SELECT dh FROM used WHERE at >= ?)', t0, t0),
+        playsToday: await one("SELECT COUNT(*) AS n FROM spent WHERE at >= ? AND state != 'refunded'", t0),
+        plays: await one("SELECT COUNT(*) AS n FROM spent WHERE state != 'refunded'"),
+      };
+      this._st = { at: t, v }; return v;
+    } catch { return this._st?.v ?? null; }   // 통계가 깨져도 순위는 나간다
   }
 }
 
@@ -207,4 +236,23 @@ export async function sqliteD1(file = ':memory:') {
       catch (e) { raw.exec('ROLLBACK'); throw e; }
     },
   };
+}
+
+/** Durable Object 내장 SQLite(ctx.storage)를 D1 모양으로 감싼다 — D1 자리가 없는 계정(무료 플랜 D1 상한 10개)에서 허브를 돌린다(2026-10-15 빙글스텝: 계정 5개 전부 10/10).
+ *  batch = storage.transactionSync(전부 아니면 전무 — D1 batch 와 같은 롤백) · 트리거(RAISE ABORT)·PK 충돌은 SQLite 가 그대로 집행한다.
+ *  meta.changes = cursor.rowsWritten(허브는 «≥ 1» 로만 본다). 순수 함수 — cloudflare:workers 를 import 하지 않아 node 시험이 같은 껍데기를 돈다. */
+export function doD1(storage) {
+  const sql = storage.sql;
+  const stmt = (q) => {
+    let args = [];
+    const o = {
+      bind: (...a) => { args = a; return o; },
+      first: async () => sql.exec(q, ...args).toArray()[0] ?? null,
+      all: async () => ({ results: sql.exec(q, ...args).toArray() }),
+      run: async () => { const c = sql.exec(q, ...args); c.toArray(); return { meta: { changes: c.rowsWritten | 0 } }; },
+      _exec: () => sql.exec(q, ...args).toArray(),
+    };
+    return o;
+  };
+  return { prepare: stmt, batch: async (list) => storage.transactionSync(() => list.map((s) => s._exec())) };
 }

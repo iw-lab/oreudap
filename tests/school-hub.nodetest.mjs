@@ -1,14 +1,26 @@
 // 학교 허브 시험 — 실제 스키마(트리거 포함)를 node:sqlite 에 얹어 D1 과 같은 배치 의미로 돌린다.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Hub, sqliteD1 } from '../hub/src/hub.js';
+import { Hub, sqliteD1, doD1 } from '../hub/src/hub.js';
 import { T, didHash } from '../hub/shared/school.js';
 
 const DID = 'a'.repeat(32), DID2 = 'b'.repeat(32), IPH = 'e'.repeat(16);
 const SCHOOL = { code: '7010000', name: '서울한빛초등학교', sido: 'B10' };
+// 저장소 두 갈래를 같은 시험으로 — HUB_STORE=do 면 Durable Object 껍데기(doD1)를 node:sqlite 위의 가짜 DO 저장소에 얹는다(tests/hub-do.test.mjs)
+const STORE = process.env.HUB_STORE === 'do' ? 'do' : 'd1';
+/** 가짜 DO storage — sql.exec(q, ...args) 커서(toArray·rowsWritten) + transactionSync(실패면 롤백). 실제 DO 와 같은 SQLite 라 트리거·PK 충돌이 그대로 난다 */
+function fakeDOStorage() {
+  const { DatabaseSync } = globalThis.process.getBuiltinModule('node:sqlite');
+  const raw = new DatabaseSync(':memory:');
+  const tc = () => Number(raw.prepare('SELECT total_changes() AS n').get().n);
+  return {
+    sql: { exec(q, ...args) { const st = raw.prepare(q), a = tc(); const rows = st.columns().length ? st.all(...args) : (st.run(...args), []); const w = tc() - a; return { toArray: () => rows, rowsWritten: w }; } },
+    transactionSync(fn) { raw.exec('BEGIN'); try { const r = fn(); raw.exec('COMMIT'); return r; } catch (e) { raw.exec('ROLLBACK'); throw e; } },
+  };
+}
 async function mk({ free = false } = {}) {
   let now = Date.UTC(2026, 9, 10, 3, 0, 0);
-  const hub = new Hub({ db: await sqliteD1(), secret: 'test-key', now: () => now, free });
+  const hub = new Hub({ db: STORE === 'do' ? doD1(fakeDOStorage()) : await sqliteD1(), secret: 'test-key', now: () => now, free });
   const dh = await didHash(DID), dh2 = await didHash(DID2);
   const call = async (p, b) => (await hub.handle(p, b)).body;
   const tick = (ms) => { now += ms; };
@@ -176,4 +188,30 @@ test('HB-J 문항 조사 — 받침 따라 은/는·을/를, «낱말» 뒤 띄�
 
 test('HB-TTL 결과 허용 시간 ≥ 2시간 — 30분이면 긴 판(캠페인 연속·대연대기·연습 9홀 36분·하트가 차는 모드)의 학교 점수가 late 로 사라졌다(2026-10-14 19게임 전수)', () => {
   assert.ok(T.RESULT_TTL_MIN >= 120, `RESULT_TTL_MIN ${T.RESULT_TTL_MIN}분`);
+});
+
+// HB-S (1.4.0) — 2026-10-16 사용자 «5위까지만 … 더보기로 나머지 다 · 참여학교 수·참여학생 수·하루 이용자수 등등을 첫화면에»
+test('HB-S 전체 순위(20개 넘게) · 통계 — 학교 수·기기 수·오늘 이용·판 수(환불 제외) · 다음 날 오늘 0 · 60초 캐시', async () => {
+  const { hub, dh, dh2, call, earn, tick } = await mk();
+  // 학교 30곳이 오늘 점수를 가진 상태(옛 LIMIT 20 이면 21위부터 «더보기»에 안 나온다)
+  const top0 = await call('/top', {});
+  assert.deepEqual(top0.stats, { schools: 0, players: 0, today: 0, playsToday: 0, plays: 0 }, '빈 허브 = 전부 0');
+  for (let i = 0; i < 30; i++) await hub.db.prepare('INSERT INTO board (period, k, code, name, sido, s) VALUES (?, ?, ?, ?, ?, ?)').bind('d', top0.day, String(7100000 + i), `학교${i}초등학교`, 'B10', 100 - i).run();
+  await earn(); await call('/select', { dh, school: SCHOOL });
+  await call('/spend', { dh, ref: 'ref:s1:0001' }); await call('/spend', { dh, ref: 'ref:s2:0001' });
+  await call('/refund', { dh, ref: 'ref:s2:0001' });
+  await earn(dh2);   // 문제만 푼 기기도 «이용»
+  tick(61e3);
+  const t = await call('/top', { dh });
+  assert.equal(t.today.length, 30, '20개 넘는 학교도 다 온다');
+  assert.equal(t.today[29].s, 71);
+  assert.deepEqual(t.stats, { schools: 1, players: 2, today: 2, playsToday: 1, plays: 1 }, '환불한 판은 안 센다 · 문제만 푼 기기도 이용');
+  // 60초 안에는 다시 안 센다
+  await earn(); await call('/spend', { dh, ref: 'ref:s3:0001' });
+  assert.equal((await call('/top', {})).stats.plays, 1, '캐시 안');
+  tick(61e3); assert.equal((await call('/top', {})).stats.plays, 2, '캐시 지나면 다시 셈');
+  // 다음 날(KST) — 오늘 이용·오늘 판은 0, 누적은 그대로
+  tick(24 * 3600e3);
+  const n = (await call('/top', {})).stats;
+  assert.equal(n.today, 0); assert.equal(n.playsToday, 0); assert.equal(n.plays, 2); assert.equal(n.players, 2);
 });

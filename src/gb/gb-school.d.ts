@@ -1,7 +1,8 @@
-export function configureSchool(o: { freePlay?: boolean; playWord?: string; sfx?: { tick?: () => void; win?: () => void } | null }): void;
+export function configureSchool(o: { freePlay?: boolean; playWord?: string; quizSubject?: "math" | "eng" | "music"; sfx?: { tick?: () => void; win?: () => void } | null }): void;
 export function mountSchoolRank(el: HTMLElement): void;
 export function refreshSchoolRank(): Promise<void>;
 export function openSchool(then?: (() => void) | null): void;
+export function openRankAll(which?: 'd' | 'w'): void;
 export function openQuiz(then?: (() => void) | null, why?: string): void;
 export function shortSchool(n: string): string;
 export interface GbResult { ok: boolean; added: number; school: string | null; capped?: boolean }

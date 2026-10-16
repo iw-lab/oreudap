@@ -6,6 +6,9 @@
  *    ③ 학교를 안 정했으면 학교부터(«목록에 없어요»를 고른 기기만 예외) ④ 이용권 없으면 문제부터 ⑤ 이용권 1장 쓰고 시작.
  * 🔴 학교는 공식 목록(NEIS)에서 고르기만 — 자유 입력 0. 서버가 NEIS 에 다시 물어 확인한 이름만 저장된다.
  * 🔴 첫 화면 학교 순위는 «맨 위·접지 않음·상위 5 + 우리 학교»(2026-10-10 사용자 «학교랭킹은 첫화면에 잘 보여줘 접지마»).
+ * 🔴 1.4.0(2026-10-16 사용자 «5위까지만 … 더보기로 나머지 학교 순위도 다 · 참여학교 수·참여학생 수·하루 이용자수 등등을 첫화면에»):
+ *    6개 이상이면 «더보기» → 전체 순위 창(오늘/이번 주) · 카드 맨 위 통계 줄 [data-gb=hub-stats](참여 학교·참여 기기·오늘 이용·오늘 판).
+ *    «학생»이 아니라 «기기»라고 쓴다 — 계정이 없어 학생을 셀 수 없다(한 태블릿을 여럿이 쓰면 1). 게이트 = gate-baseline B11.
  */
 import { hubState, hubLoad, hubSave, refreshMe, searchSchool, selectSchool, topSchools, newPack, gradePack,
   newRef, spendTicket, refundTicket, reportResult, onHub, hubKey } from './hubnet.js';
@@ -69,6 +72,10 @@ function paintRank() {
   const mine = d && d.mine ? (useToday ? d.mine.today : d.mine.weekly) : null;
   const myCode = hubState.school && hubState.school.code;
   const top = rows.slice(0, 5);
+  const st = d && d.stats;
+  const n = (v) => (typeof v === 'number' ? v.toLocaleString('ko-KR') : '–');
+  const stats = `<div class="gb-stats" data-gb="hub-stats">${[['참여 학교', st?.schools], ['참여 기기', st?.players], ['오늘 이용', st?.today], [`오늘 ${opt.playWord}`, st?.playsToday]]
+    .map(([k, v]) => `<span><b>${n(v)}</b><small>${esc(k)}</small></span>`).join('')}</div>`;
   const li = (r, i, me) => `<li class="${me ? 'me' : ''}${i < 3 ? ' medal' : ''}"><span class="pos${i < 3 ? ` m${i + 1}` : ''}">${i + 1}</span><span class="nm">${esc(r.name)}${r.sido ? ` <small>${esc(r.sido)}</small>` : ''}</span><b class="pt">${r.s}</b></li>`;
   let body;
   if (!d) body = '<li class="dim">불러오는 중…</li>';
@@ -82,12 +89,41 @@ function paintRank() {
     ? `<button class="gb-link" data-gb-act="school">${gbIcon('school')} 우리 학교 정하기</button>`
     : mine ? `<span class="gb-mine">${esc(shortSchool(hubState.school.name))} <b>${mine.rank}위</b>${mine.gap ? ` · 위 학교까지 ${mine.gap}점` : ' · 1등!'}</span>`
       : `<span class="gb-mine">${esc(shortSchool(hubState.school.name))} — 첫 점수를 올려요!</span>`;
+  rankEl.dataset.gbV = '1.4'; rankEl.dataset.gbN = String(rows.length);   // 게이트 B11 이 «통계 줄·더보기»를 판정할 표지
   rankEl.innerHTML = `
     <div class="gb-rank-head"><b>${gbIcon('trophy')} 학교 순위</b><small>${period}</small>${free() ? '' : `<span class="gb-tix" title="이용권">${gbIcon('ticket')} ${hubState.online === false ? '–' : hubState.tix}</span>`}</div>
+    ${stats}
     <ol class="gb-rank-list">${body}</ol>
+    ${rows.length > 5 ? `<button class="gb-link gb-more" data-gb-act="more">전체 순위 보기 · ${rows.length.toLocaleString('ko-KR')}개 학교</button>` : ''}
     <div class="gb-rank-foot">${me}${free() ? '' : `<button class="gb-link" data-gb-act="quiz">${gbIcon('ticket')} 문제 풀고 이용권</button>`}</div>`;
   rankEl.querySelector('[data-gb-act="school"]')?.addEventListener('click', () => openSchool(() => { hide(); refreshSchoolRank(); }));
   rankEl.querySelector('[data-gb-act="quiz"]')?.addEventListener('click', () => openQuiz(null));
+  rankEl.querySelector('[data-gb-act="more"]')?.addEventListener('click', () => openRankAll(useToday ? 'd' : 'w'));
+}
+
+/* ── 전체 순위(더보기) ───────────────────────────────────── */
+export function openRankAll(which = 'd') {
+  const d = rankData || {};
+  const tabs = [['d', '오늘', d.today || []], ['w', '이번 주', d.weekly || []]];
+  const myCode = hubState.school && hubState.school.code;
+  const paint = (w) => {
+    const [, label, rows] = tabs.find((t) => t[0] === w) || tabs[0];
+    const mine = d.mine ? (w === 'd' ? d.mine.today : d.mine.weekly) : null;
+    const list = rows.length ? rows.map((r, i) => `<li class="${r.code === myCode ? 'me' : ''}${i < 3 ? ' medal' : ''}"${r.code === myCode ? ' data-gb-me' : ''}><span class="pos${i < 3 ? ` m${i + 1}` : ''}">${i + 1}</span><span class="nm">${esc(r.name)}${r.sido ? ` <small>${esc(r.sido)}</small>` : ''}</span><b class="pt">${r.s}</b></li>`).join('')
+      : `<li class="dim">${label} 점수가 아직 없어요</li>`;
+    const extra = myCode && mine && !rows.some((r) => r.code === myCode) ? `<li class="sep me"><span class="pos">${mine.rank}</span><span class="nm">${esc(shortSchool(hubState.school.name))}</span><b class="pt">${mine.s}</b></li>` : '';
+    show(`
+      <div class="gb-rank-all" data-gb="rank-all">
+        <h2>${gbIcon('trophy')} 학교 순위</h2>
+        <div class="gb-tabs" role="tablist">${tabs.map(([k, l, r]) => `<button class="gb-tab${k === w ? ' on' : ''}" role="tab" aria-selected="${k === w}" data-tab="${k}">${l} · ${r.length}</button>`).join('')}</div>
+        <ol class="gb-rank-list gb-rank-scroll">${list}${extra}</ol>
+        <div class="gb-btns"><button class="gb-btn ghost" data-gb-back>닫기</button></div>
+      </div>`);
+    $$('[data-tab]').forEach((b) => b.addEventListener('click', () => paint(b.dataset.tab)));
+    $('[data-gb-back]').addEventListener('click', hide);
+    $('[data-gb-me]')?.scrollIntoView({ block: 'center' });
+  };
+  paint(which);
 }
 
 /* ── 우리 학교 정하기 ─────────────────────────────────────── */
@@ -142,7 +178,7 @@ async function findSchool() {
 }
 
 /* ── 문제 풀고 이용권 받기 ───────────────────────────────── */
-const quizPref = () => { try { const j = JSON.parse(localStorage.getItem(hubKey('quiz'))) || {}; return { s: j.s === 'eng' ? 'eng' : 'math', g: j.g >= 1 && j.g <= 6 ? j.g : 3 }; } catch { return { s: 'math', g: 3 }; } };
+const quizPref = () => { try { const j = JSON.parse(localStorage.getItem(hubKey('quiz'))) || {}; return { s: ['eng', 'music', 'math'].includes(j.s) ? j.s : (opt.quizSubject || 'math'), g: j.g >= 1 && j.g <= 6 ? j.g : 3 }; } catch { return { s: opt.quizSubject || 'math', g: 3 }; } };
 const saveQuizPref = (p) => { try { localStorage.setItem(hubKey('quiz'), JSON.stringify(p)); } catch { /* */ } };
 const qz = { pack: null, i: 0, answers: [], busy: false, passed: false, msg: '', review: '' };
 let quizThen = null;
@@ -155,7 +191,7 @@ export function openQuiz(then = null, why = '') {
 }
 function renderQuiz() {
   const pref = quizPref();
-  const lo = pref.s === 'eng' ? 3 : 1;
+  const lo = pref.s === 'math' ? 1 : 3;   // 영어·음악 교과는 3학년부터
   if (pref.g < lo) pref.g = lo;
   const grades = []; for (let g = lo; g <= 6; g++) grades.push(`<button class="gb-pill ${g === pref.g ? 'on' : ''}" data-grade="${g}">${g}학년</button>`);
   const q = qz.pack && qz.pack.qs[qz.i];
@@ -170,7 +206,7 @@ function renderQuiz() {
       <h2>${gbIcon('ticket')} 문제 풀고 이용권 받기</h2>
       <p class="gb-hint">${hubState.q}문제 중 <b>${hubState.pass}개</b> 맞히면 <b>이용권 ${hubState.per}장</b> · ${opt.playWord} 한 판 = 이용권 1장 · 지금 <b>${hubState.tix}장</b></p>
       ${qz.pack ? '' : `<div class="gb-opts">
-        <div class="gb-seg">${[['math', '수학'], ['eng', '영어']].map(([v, t]) => `<button class="gb-pill ${pref.s === v ? 'on' : ''}" data-subj="${v}">${t}</button>`).join('')}</div>
+        <div class="gb-seg">${[['math', '수학'], ['eng', '영어'], ['music', '음악']].map(([v, t]) => `<button class="gb-pill ${pref.s === v ? 'on' : ''}" data-subj="${v}">${t}</button>`).join('')}</div>
         <div class="gb-seg">${grades.join('')}</div></div>`}
       ${body}
       <p class="gb-msg" data-frac-ok>${qz.msg}</p>
