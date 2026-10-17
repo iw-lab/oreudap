@@ -44,6 +44,13 @@ function encode(src, dst, filter) {
     ...(filter ? ['-af', filter] : []), '-c:a', 'aac', '-b:a', '32k', '-ac', '1', '-ar', '24000', dst]);
 }
 
+// 🔴 AAC(.m4a) 를 decodeAudioData 로 못 푸는 폰이 있다(kit/audio-fallback) — 같은 이름 .ogg(Opus) 를
+//    같이 만들어 둬야 m4a-fallback.js 가 받을 예비본이 생긴다.
+function encodeOgg(dst) {
+  execFileSync('ffmpeg', ['-nostdin', '-v', 'error', '-y', '-i', dst,
+    '-c:a', 'libopus', '-b:a', '64k', dst.replace(/\.m4a$/, '.ogg')]);
+}
+
 function main() {
   if (!fs.existsSync(SRC)) { console.error(`❌ 원본 폴더 없음: ${SRC}`); process.exit(3); }
   fs.mkdirSync(OUT, { recursive: true });
@@ -61,9 +68,16 @@ function main() {
     if (!have.has(key)) { missing.push(w); continue; }
     const src = path.join(SRC, `${key}.mp3`);
     const dst = path.join(OUT, `${key}.m4a`);
-    if (peakDb(src) < -30) { silent.push(w); if (fs.existsSync(dst)) fs.unlinkSync(dst); continue; }
+    if (peakDb(src) < -30) {
+      silent.push(w);
+      if (fs.existsSync(dst)) fs.unlinkSync(dst);
+      const oggDead = dst.replace(/\.m4a$/, '.ogg');
+      if (fs.existsSync(oggDead)) fs.unlinkSync(oggDead);
+      continue;
+    }
     encode(src, dst, TRIM);
     if (dur(dst) < 0.25) { encode(src, dst, null); retrimmed += 1; }   // 과다 절단 — 자르지 않고 다시
+    encodeOgg(dst);
     bytes += fs.statSync(dst).size;
     made.push(key);
   }
