@@ -55,13 +55,16 @@ const walk = (dir) => fs.readdirSync(dir, { withFileTypes: true }).flatMap((d) =
 
 async function main() {
   // ── ① 번들 크기 ────────────────────────────────────────
-  const files = walk(DIR);
+  // AAC 예비본(.m4a 옆 같은 이름 .ogg)은 m4a 를 못 푸는 폰에서만 받는다(kit/audio-fallback · 2026-10-17) — 예산에서 빼고 따로 적는다
+  const all = walk(DIR), isSpare = (f) => /\.ogg$/i.test(f) && fs.existsSync(f.replace(/\.ogg$/i, '.m4a'));
+  const files = all.filter((f) => !isSpare(f)), spare = all.filter(isSpare);
   const isOndemand = (f) => PERF.ONDEMAND_DIRS.some((d) => path.relative(DIR, f).startsWith(d));
   const sum = (fs_) => fs_.reduce((a, f) => a + fs.statSync(f).size, 0);
   const bundle = sum(files.filter((f) => !isOndemand(f)));
   const ondemand = sum(files.filter(isOndemand));
   const MB = (n) => (n / 1024 / 1024).toFixed(2);
   NOTE(`번들 ${MB(bundle)}MB · 파일 ${files.length - files.filter(isOndemand).length}개`);
+  NOTE(`AAC 예비본 .ogg ${spare.length}개 · ${(spare.reduce((a, f) => a + fs.statSync(f).size, 0) / 1024 / 1024).toFixed(2)}MB(예산 밖 — m4a 해독 실패 기기만 받는다)`);
   NOTE(`온디맨드(${PERF.ONDEMAND_DIRS.join(', ')}) ${MB(ondemand)}MB · 파일 ${files.filter(isOndemand).length}개`);
   if (bundle > PERF.TOTAL_BYTES) FAIL(`번들 ${MB(bundle)}MB > ${(PERF.TOTAL_BYTES / 1024 / 1024).toFixed(0)}MB`);
   if (ondemand > PERF.ONDEMAND_BYTES) FAIL(`온디맨드 ${MB(ondemand)}MB > ${(PERF.ONDEMAND_BYTES / 1024 / 1024).toFixed(0)}MB`);
