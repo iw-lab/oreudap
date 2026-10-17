@@ -6,7 +6,17 @@
  */
 const cfg = { key: 'gb.hub.v1', base: 'api/hub/', timeoutMs: 6000, offline: false };
 /** 게임마다 한 번: configureHub({ key: '<게임id>.hub.v1' }) — 같은 도메인의 다른 게임과 저장소 키가 안 겹치게 */
-export function configureHub(o) { Object.assign(cfg, o || {}); }
+export function configureHub(o) { Object.assign(cfg, o || {}); hubState.school = localSchool(); }
+
+/* 🏫 학교는 기기에 저장한다(1.6.1 · 2026-10-17 사용자 «한 번만 하면 반드시 로컬에 학교 저장»).
+ *  예전엔 학교가 허브 서버에만 있었다 — 첫 /me 가 오기 전에 누르거나(아침 첫 접속 = 서버 콜드 스타트),
+ *  허브 저장소가 바뀌거나 비면(계정 이사·DO 초기화) hubState.school 이 null 이라 «우리 학교 정하기»가 다시 떴다.
+ *  이제 ① 기기 저장값으로 바로 시작하고 ② 서버가 «학교 없음»이라 하면 기기 값으로 서버를 조용히 되살린다. */
+function localSchool() {
+  const s = hubLoad().school;
+  return s && typeof s.code === 'string' && s.code && typeof s.name === 'string' ? { code: s.code, name: s.name, sido: s.sido || '', region: s.region || '' } : null;
+}
+let restoring = false;
 /** 같은 도메인의 다른 게임과 안 겹치는 저장소 키(문제 선호 등) */
 export const hubKey = (suffix) => `${cfg.key}.${suffix}`;
 
@@ -48,7 +58,14 @@ function applyMe(j) {
   hubState.online = true; hubState.checkedAt = Date.now();
   if (typeof j.tix === 'number') hubState.tix = j.tix;
   if (typeof j.free === 'boolean') hubState.free = j.free;
-  if ('school' in j) { hubState.school = j.school; hubSave({ schoolName: j.school?.name ?? '', schoolCode: j.school?.code ?? '' }); }
+  if ('school' in j) {
+    const mine = localSchool();
+    if (j.school) { hubState.school = j.school; hubSave({ school: { code: j.school.code, name: j.school.name, sido: j.school.sido || '', region: j.school.region || '' }, schoolName: j.school.name, schoolCode: j.school.code }); }
+    else if (mine) {   // 서버만 잊었다 — 기기 값을 지키고 서버를 되살린다(서버가 NEIS 로 다시 확인한다)
+      hubState.school = mine;
+      if (!restoring && mine.sido) { restoring = true; void hubCall('select', { code: mine.code, sido: mine.sido }).catch(() => {}).finally(() => { restoring = false; }); }
+    } else hubState.school = null;
+  }
   for (const k of ['todayPts', 'cap', 'pass', 'q', 'per']) if (typeof j[k] === 'number') hubState[k] = j[k];
   hubEmit();
 }
@@ -131,3 +148,6 @@ async function flushPending() {
     hubSave({ pending: left });
   } finally { flushing = false; }
 }
+
+// configureHub 를 안 부르는 게임도 기기에 저장된 학교로 바로 시작한다
+hubState.school = localSchool();
