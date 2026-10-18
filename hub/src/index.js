@@ -5,7 +5,7 @@
 // 라우트: GET /school?q=&sido= · GET /schools?did= · POST /me|/select|/pack|/grade|/spend|/refund|/result  (본문 = {did, …})
 import { Hub } from './hub.js';
 export { HubDO } from './do.js';   // 저장소가 Durable Object(HUB_DO 바인딩)인 허브만 쓴다 — D1 허브엔 묶이지 않은 클래스로 남는다
-import { cleanQuery, isCode, isSido, isDid, searchUrl, codeUrl, parseNeis, ymdKst, shortName, didHash } from '../shared/school.js';
+import { cleanQuery, isCode, isSido, isDid, searchUrl, codeUrl, parseNeis, ymdKst, shortName, didHash, searchSchools } from '../shared/school.js';
 
 const J = (body, status = 200, cacheSec = 0) => new Response(JSON.stringify(body), { status, headers: {
   'content-type': 'application/json; charset=utf-8', 'cache-control': cacheSec ? `public, max-age=${cacheSec}` : 'no-store' } });
@@ -33,6 +33,9 @@ export default {
     const iph = /^[0-9a-f]{16}$/.test(req.headers.get('x-bo-iph') || '') ? req.headers.get('x-bo-iph') : '';
     if (path === '/school' && req.method === 'GET') {
       const q = cleanQuery(url.searchParams.get('q')), sido = url.searchParams.get('sido') || '';
+      /* 허브에 실은 전체 목록에서 먼저(나이스는 키 없이 5곳까지라 흔한 이름은 우리 학교가 안 나왔다 · 키트 1.7.0) — 없으면 나이스(새로 연 학교) */
+      const local = searchSchools(url.searchParams.get('q'), isSido(sido) ? sido : '');
+      if (local.length) return J({ list: local.map((s) => ({ ...s, short: shortName(s.name) })) }, 200, 300);
       if (!q) return J({ list: [] });
       const list = await neis(searchUrl(q, isSido(sido) ? sido : undefined), ctx);
       return list ? J({ list: list.map((s) => ({ ...s, short: shortName(s.name) })) }, 200, 300) : J({ list: [], error: 'neis' }, 502);

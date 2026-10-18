@@ -104,3 +104,29 @@ export async function didHash(did) {
 export function resultPoints({ won }) {
   return T.SCHOOL_PTS[won ? 1 : 0];
 }
+
+// ── 학교 찾기(1.7.0 · 2026-10-18 사용자 «다른 게임도 학교 이름 모두 제대로 찾을 수 있게») ──
+// 나이스는 인증키 없이 한 번에 5곳까지만 줘서 «중앙»(91곳)·«동산» 같은 흔한 이름은 우리 학교가 영영 안 나왔다.
+// 허브에 실은 전체 목록(data/schools.js — 6,330곳)에서 찾는다: 띄어 쓴 낱말마다 «학교 이름 또는 지역(시도·시군구)»에 들어 있으면 고른다.
+//   «김제 중앙» · «중앙초 김제» · «전북 중앙» · «서울 옥수» · «옥수초등학교» 다 된다. 목록에 없으면(새로 연 학교) 나이스에 묻는다(index.js).
+import { SCHOOL_ROWS } from './data/schools.js';
+let ROWS = null;
+const normQ = (s) => String(s ?? '').normalize('NFC').replace(/[^0-9A-Za-z가-힣\s]/g, ' ').trim();
+const stripKind = (t) => t.replace(/(초등학교|초등|초교|초)$/, '');
+export function searchSchools(rawQ, sido = '', limit = 20) {
+  if (!ROWS) ROWS = SCHOOL_ROWS.split('\n').map((l) => { const [code, name, sd, sgg] = l.split('|'); const base = name.replace(/초등학교$/, ''); return { code, name, sido: sd, sgg, base, hay: base, reg: `${SIDO[sd] || ''} ${sgg} ${sgg.replace(/[시군구]( |$)/g, '$1')}` }; });
+  const toks = normQ(rawQ).split(/\s+/).map(stripKind).filter(Boolean).slice(0, 4); if (!toks.length || toks.join('').length > 24) return [];
+  const whole = toks.join('');
+  const out = [];
+  for (const r of ROWS) {
+    if (sido && r.sido !== sido) continue;
+    let nameHit = 0, ok = true;
+    for (const t of toks) { if (r.base.includes(t)) nameHit++; else if (!r.reg.includes(t)) { ok = false; break; } }
+    if (!ok && toks.length === 1 && r.base.includes(whole)) ok = true;
+    if (!ok || !nameHit) { if (!(ok && toks.length > 1 && r.base.includes(whole))) continue; }
+    const score = r.base === whole || toks.some((t) => r.base === t) ? 0 : toks.some((t) => r.base.startsWith(t) || r.base.endsWith(t)) ? 1 : 2;
+    out.push([score, r.base.length, r]);
+  }
+  out.sort((a, b) => a[0] - b[0] || a[1] - b[1] || a[2].name.localeCompare(b[2].name, 'ko'));
+  return out.slice(0, limit).map(([, , r]) => ({ code: r.code, name: r.name, sido: r.sido, region: [SIDO[r.sido], r.sgg].filter(Boolean).join(' ') }));
+}
