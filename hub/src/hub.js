@@ -9,6 +9,10 @@
 import { makeQuestions } from '../shared/quiz.js';
 import { T, kstDay, kstWeek, isDh, isCode, isRef, packKey, seal, unseal, shortName, SIDO, isCanonicalToken, tokenKey, resultPoints } from '../shared/school.js';
 
+const READY = new Map();   // 표 모양 해시 → { db, p } — 같은 isolate 의 다음 요청은 DDL·확인 읽기 없이 지나간다
+/** 시험용 — 새 isolate(새 워커 기동) 흉내 */
+export function resetSchemaMemo() { READY.clear(); }
+function fnv(str) { let h = 0x811c9dc5; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; } return h.toString(36); }
 export const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS dev (dh TEXT PRIMARY KEY, school TEXT, sname TEXT, sido TEXT, set_day TEXT DEFAULT '',
      correct INTEGER NOT NULL DEFAULT 0, tix INTEGER NOT NULL DEFAULT 0 CHECK (tix >= 0), packs INTEGER NOT NULL DEFAULT 0,
@@ -87,15 +91,37 @@ export class Hub {
   // db: D1Database 모양({ prepare, batch }) · secret: 봉인 키 원문(wrangler secret QUIZ_KEY) · now: 시계(시험용)
   // free = FREE_PLAY 게임(판 자체가 문제 풀이 — 구구성 수호대 2026-10-12): 판 영수증(ref)은 그대로 내되 이용권은 안 깎는다.
   //   차감 트리거를 건드리지 않으려고 «같은 batch 안에서 1장 넣고 바로 1장 쓴다» — 학교 점수 정산·하루 상한·환불 창은 그대로 걸린다.
-  constructor({ db, secret, now = () => Date.now(), free = false }) {
-    this.free = !!free;
+  // nocap = NO_CAP 게임(1.5.0 · 타자왕국 2026-10-16 사용자 «다 풀어 상한»): 기기·IP 하루 학교 점수 상한을 걷는다 — 트리거도 지운다(이미 깔린 DB 포함).
+  // switchPerDay = SCHOOL_SWITCH_PER_DAY(1.8.0 · 타자왕국 2026-10-19 사용자 «학교 바꾸기 하루 2번»): 기기 하나가 하루에 학교를 바꿀 수 있는 횟수(기본 1).
+  //   센 수는 set_day 칸에 «날짜#횟수»로 적는다(스키마 그대로 · 옛 값 «날짜»만 = 1번 쓴 것).
+  constructor({ db, secret, now = () => Date.now(), free = false, nocap = false, switchPerDay = 1 }) {
+    this.free = !!free; this.nocap = !!nocap; this.switchPerDay = Math.max(1, Math.min(10, Number(switchPerDay) | 0 || 1));
     if (!secret) throw new Error('QUIZ_KEY 없음 — 봉인 키 없이 묶음을 내면 워커가 바뀔 때마다 채점이 410 이 된다');
     Object.assign(this, { db, now }); this.keyP = packKey(secret); this.ready = null;
   }
   init() {
-    return (this.ready ||= this.db.batch(SCHEMA.map((s) => this.db.prepare(s)))
-      .then(async () => { if (!(await this.db.prepare("SELECT n FROM cnt WHERE k = 'v'").first())) await this.db.batch(BACKFILL.map((s) => this.db.prepare(s))); })
-      .catch((e) => { this.ready = null; throw e; }));
+    const CAP_TRG = /TRIGGER IF NOT EXISTS (dev_cap|ip_cap_u|ip_cap_i) /;
+    /* free(1.9.0 · 2026-10-19 타자왕국 DO 무료 «하루 쓴 행 10만» 3시간 반 만에 소진): 판마다 «이용권 +1 → 트리거 −1» 이 dev 행을 두 번 써서 아무것도 안 바꿨다 →
+       이용권 트리거(차감·확인·환불)를 걷고 판 영수증만 남긴다. FREE_PLAY 를 끄면 SCHEMA 의 IF NOT EXISTS 가 다시 깐다 */
+    const TIX_TRG = /TRIGGER IF NOT EXISTS (spend_need|spend_take|refund_give) /;
+    let sql = SCHEMA;
+    if (this.nocap) sql = [...sql.filter((s) => !CAP_TRG.test(s)), 'DROP TRIGGER IF EXISTS dev_cap', 'DROP TRIGGER IF EXISTS ip_cap_u', 'DROP TRIGGER IF EXISTS ip_cap_i'];
+    if (this.free) sql = [...sql.filter((s) => !TIX_TRG.test(s)), 'DROP TRIGGER IF EXISTS spend_need', 'DROP TRIGGER IF EXISTS spend_take', 'DROP TRIGGER IF EXISTS refund_give'];
+    /* 🔴 표 만들기는 한 번만(1.11.1 · 2026-10-19): 워커는 요청마다 new Hub 라 this.ready 캐시가 무력했다 → 요청마다 DDL ~40행 읽기 →
+       끝까지 진화 하루 216만 행으로 D1 «하루 읽기 500만»(계정 공유)이 넘쳐 simfeelgood 허브 10개가 전부 1101. 표 모양 해시를 cnt 에 적어 두고
+       같으면 건너뛴다(1행 읽기) · 같은 isolate 안에선 그 1행도 안 읽는다(모듈 기억). 표 모양이 바뀌면(free·nocap 전환) 해시가 달라 다시 깐다. 시험 HB-DDL */
+    const sig = 'schema:' + fnv(sql.join(';')), memo = READY.get(sig);
+    if (memo && memo.db === this.db) return (this.ready = memo.p);
+    const p = (async () => {
+      const done = await this.db.prepare('SELECT n FROM cnt WHERE k = ?').bind(sig).first().catch(() => null);
+      if (!done) {
+        await this.db.batch(sql.map((s) => this.db.prepare(s)));
+        if (!(await this.db.prepare("SELECT n FROM cnt WHERE k = 'v'").first())) await this.db.batch(BACKFILL.map((s) => this.db.prepare(s)));
+        await this.db.prepare('INSERT OR REPLACE INTO cnt (k, n) VALUES (?, 1)').bind(sig).run();
+      }
+    })().catch((e) => { READY.delete(sig); this.ready = null; throw e; });
+    READY.set(sig, { db: this.db, p });
+    return (this.ready = p);
   }
   /** 새 기기 = 첫 경기권 FIRST_TIX 장(처음 온 아이가 한 판 맛보고 문제로). 이미 있으면 아무것도 안 한다 */
   ensure(dh) { return this.db.prepare('INSERT INTO dev (dh, tix) VALUES (?, ?) ON CONFLICT (dh) DO NOTHING').bind(dh, T.FIRST_TIX); }
@@ -112,13 +138,13 @@ export class Hub {
     if (path === '/me') {
       await this.ensure(dh).run();
       const d = await this.dev(dh), used = d.pts_day === day ? d.pts | 0 : 0;
-      return json({ school: this.schoolOfRow(d), free: this.free, tix: d.tix | 0, correct: d.correct | 0, pass: T.TICKET_PASS_Q, q: T.PACK_Q, per: T.TIX_PER_PACK, todayPts: used, cap: T.SCHOOL_DAY_CAP });
+      return json({ school: this.schoolOfRow(d), free: this.free, tix: d.tix | 0, correct: d.correct | 0, pass: T.TICKET_PASS_Q, q: T.PACK_Q, per: T.TIX_PER_PACK, todayPts: used, cap: this.nocap ? 0 : T.SCHOOL_DAY_CAP, nocap: this.nocap });
     }
     if (path === '/spend') {
       const ref = String(body.ref || ''); if (!isRef(ref)) return json({ error: 'ref' }, 400);
       const kind = /^[a-z]{1,12}$/.test(String(body.kind || '')) ? String(body.kind) : 'play';   // 기록용(점수엔 안 쓴다)
       try {
-        await this.db.batch([this.ensure(dh), ...(this.free ? [this.db.prepare('UPDATE dev SET tix = tix + 1 WHERE dh = ?').bind(dh)] : []), this.db.prepare("INSERT INTO spent (ref, dh, kind, state, at) VALUES (?, ?, ?, 'spent', ?)").bind(ref, dh, kind, t)]);
+        await this.db.batch([this.ensure(dh), this.db.prepare("INSERT INTO spent (ref, dh, kind, state, at) VALUES (?, ?, ?, 'spent', ?)").bind(ref, dh, kind, t)]);
       } catch (e) {
         if (/ticket/.test(String(e?.message || e))) return json({ ok: false, why: 'ticket', tix: 0 });
         if (dup(e)) {   // 같은 ref — 이미 냈으면 ok(멱등), 돌려받은 ref 는 다시 못 쓴다
@@ -138,14 +164,20 @@ export class Hub {
       // 🔴 «=== 1» 이면 D1 에선 환불이 되고도 ok:false(트리거 행까지 세서 2) → 클라가 쓸데없이 결과를 보냈다(2026-10-14 숲속 오케스트라 배포본 실측)
       return json({ ok: (r.meta?.changes | 0) >= 1, tix: await this.tix(dh) });
     }
-    if (path === '/result') return json(await this.result(dh, body, day, week, t, String(body.iph || '')));
+    if (path === '/result') {   // 판 끝 = 점수 + 바뀐 순위를 한 번에(1.12.0) — 예전엔 끝나자마자 /schools 를 또 불러 판마다 요청 3번(차감·결과·순위) → 2번
+      const r = await this.result(dh, body, day, week, t, String(body.iph || ''));
+      if (r && r.ok) r.top = await this.top(day, week, (await this.dev(dh))?.school || null);
+      return json(r);
+    }
     if (path === '/select') {
       const s = body.school; if (!s || !isCode(s.code) || !SIDO[s.sido]) return json({ error: 'code' }, 400);
       await this.ensure(dh).run();
       const d = await this.dev(dh);
-      if (d.school && d.school !== s.code && d.set_day === day) return json({ error: 'today' }, 429);   // 학교 바꾸기는 하루 1회(순위 품앗이 차단)
+      const [sd, sn] = String(d.set_day || '').split('#'), used = sd !== day ? 0 : sn === undefined ? 1 : Number(sn) | 0;
+      if (d.school && d.school !== s.code && used >= this.switchPerDay) return json({ error: 'today', per: this.switchPerDay }, 429);   // 학교 바꾸기는 하루 switchPerDay 회(순위 품앗이 차단)
+      const setDay = d.school === s.code ? (d.set_day || '') : !d.school ? (this.switchPerDay > 1 ? `${day}#0` : day) : `${day}#${used + 1}`;   // 처음 고르기: 기본 1 = 옛 뜻 그대로(그날은 못 바꾼다) · 2 이상 = 안 센다
       await this.db.prepare('UPDATE dev SET school = ?, sname = ?, sido = ?, set_day = ? WHERE dh = ?')
-        .bind(s.code, String(s.name).slice(0, 30), s.sido, d.school === s.code ? (d.set_day || '') : day, dh).run();
+        .bind(s.code, String(s.name).slice(0, 30), s.sido, setDay, dh).run();
       return json({ ok: true, school: { code: s.code, name: String(s.name).slice(0, 30), sido: s.sido, region: SIDO[s.sido] } });
     }
     if (path === '/pack') {
@@ -184,14 +216,16 @@ export class Hub {
       if (t - sp.at > T.RESULT_TTL_MIN * 60000) return { ok: false, why: 'late' };
       const d = await this.dev(dh), sc = this.schoolOfRow(d);
       const used = d.pts_day === day ? d.pts | 0 : 0;
-      const ipUsed = (await this.db.prepare('SELECT s FROM ipcap WHERE day = ? AND iph = ?').bind(day, iph).first())?.s | 0;
+      const ipUsed = this.nocap ? 0 : (await this.db.prepare('SELECT s FROM ipcap WHERE day = ? AND iph = ?').bind(day, iph).first())?.s | 0;
       const want = resultPoints({ won: !!body.won });
-      const n = sc ? Math.max(0, Math.min(want, T.SCHOOL_DAY_CAP - used, T.IP_DAY_CAP - ipUsed)) : 0;
+      const n = !sc ? 0 : this.nocap ? want : Math.max(0, Math.min(want, T.SCHOOL_DAY_CAP - used, T.IP_DAY_CAP - ipUsed));
       const stmts = [this.db.prepare('INSERT INTO scored (ref, dh, n, at) VALUES (?, ?, ?, ?)').bind(ref, dh, n, t)];
       if (n) {
         // 누적(덮어쓰기 아님) — 날이 바뀌었으면 새로 시작
-        stmts.push(this.db.prepare('UPDATE dev SET pts = CASE WHEN pts_day = ? THEN pts + ? ELSE ? END, pts_day = ? WHERE dh = ?').bind(day, n, n, day, dh));
-        stmts.push(this.db.prepare('INSERT INTO ipcap (day, iph, s) VALUES (?, ?, ?) ON CONFLICT (day, iph) DO UPDATE SET s = s + excluded.s').bind(day, iph, n));
+        if (!this.nocap) {   // 상한 없는 게임은 상한용 누적(기기·IP)을 안 쓴다 — 판마다 2행(1.9.0)
+          stmts.push(this.db.prepare('UPDATE dev SET pts = CASE WHEN pts_day = ? THEN pts + ? ELSE ? END, pts_day = ? WHERE dh = ?').bind(day, n, n, day, dh));
+          stmts.push(this.db.prepare('INSERT INTO ipcap (day, iph, s) VALUES (?, ?, ?) ON CONFLICT (day, iph) DO UPDATE SET s = s + excluded.s').bind(day, iph, n));
+        }
         for (const [period, k] of [['d', day], ['w', week]]) stmts.push(this.db.prepare(
           'INSERT INTO board (period, k, code, name, sido, s) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT (period, k, code) DO UPDATE SET s = s + excluded.s, name = excluded.name')
           .bind(period, k, sc.code, String(sc.name).slice(0, 30), sc.sido, n));

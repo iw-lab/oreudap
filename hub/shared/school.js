@@ -130,3 +130,9 @@ export function searchSchools(rawQ, sido = '', limit = 20) {
   out.sort((a, b) => a[0] - b[0] || a[1] - b[1] || a[2].name.localeCompare(b[2].name, 'ko'));
   return out.slice(0, limit).map(([, , r]) => ({ code: r.code, name: r.name, sido: r.sido, region: [SIDO[r.sido], r.sgg].filter(Boolean).join(' ') }));
 }
+/** 코드로 한 곳 — 학교 저장(/select) 때 나이스 대신 목록으로 확인한다(외부 요청 0 · 1.12.0). 목록에 없으면 null(→ 나이스) */
+export function schoolByCode(code, sido = '') {
+  if (!ROWS) searchSchools('가');
+  const r = ROWS.find((x) => x.code === String(code) && (!sido || x.sido === sido));
+  return r ? { code: r.code, name: r.name, sido: r.sido, region: [SIDO[r.sido], r.sgg].filter(Boolean).join(' ') } : null;
+}

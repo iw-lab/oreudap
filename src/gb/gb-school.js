@@ -96,7 +96,7 @@ function paintRank() {
     <ol class="gb-rank-list">${body}</ol>
     ${rows.length > 5 ? `<button class="gb-link gb-more" data-gb-act="more">전체 순위 보기 · ${rows.length.toLocaleString('ko-KR')}개 학교</button>` : ''}
     <div class="gb-rank-foot">${me}${free() ? '' : `<button class="gb-link" data-gb-act="quiz">${gbIcon('ticket')} 문제 풀고 이용권</button>`}</div>`;
-  rankEl.querySelector('[data-gb-act="school"]')?.addEventListener('click', () => openSchool(() => { hide(); refreshSchoolRank(); }));
+  rankEl.querySelector('[data-gb-act="school"]')?.addEventListener('click', () => openSchool(() => hide())   /* 순위는 저장 직후 한 번 이미 다시 받는다 — 여기서 또 부르면 /schools 두 번(1.12.0) */);
   rankEl.querySelector('[data-gb-act="quiz"]')?.addEventListener('click', () => openQuiz(null));
   rankEl.querySelector('[data-gb-act="more"]')?.addEventListener('click', () => openRankAll(useToday ? 'd' : 'w'));
 }
@@ -154,13 +154,18 @@ export function openSchool(then = null) {
   if (none) none.onclick = () => { hubSave({ noSchool: true }); const go = schoolThen; schoolThen = null; hide(); go && go(); };
   setTimeout(() => $('[data-gb-q]')?.focus(), 50);
 }
+let schoolSearchMod = null;   // 학교 목록 모듈(한 번만 받는다)
 async function findSchool() {
   const q = $('[data-gb-q]').value.trim(), sido = $('[data-gb-sido]').value;
   const msg = $('[data-gb-msg]'), out = $('[data-gb-results]');
   if (!q) { msg.textContent = '학교 이름을 한 글자 이상 써 주세요'; return; }
   msg.textContent = '찾는 중…'; out.innerHTML = '';
   try {
-    const j = await searchSchool(q, sido);
+    /* 기기에서 먼저 찾는다(1.12.0) — 전국 초등학교 목록(정적 파일 · 처음 한 번 받고 캐시)이라 찾기마다 서버 요청 0.
+       목록에 없을 때만(새로 연 학교) 허브에 묻는다(허브가 나이스로) */
+    let j = null;
+    try { const m = await (schoolSearchMod ||= import('./gb-school-search.js')); const list = m.searchSchools(q, sido); if (list.length) j = { list }; } catch { schoolSearchMod = null; }
+    j ||= await searchSchool(q, sido);
     const list = j.list || [];
     msg.textContent = list.length ? '' : j.error ? '학교 목록 서버가 잠시 대답이 없어요' : '찾는 학교가 없어요 — 시도를 고르거나 이름을 줄여 보세요';
     out.innerHTML = list.map((s, i) => `<li><button class="gb-pick" data-i="${i}">${esc(s.name)} <small>${esc(s.region || SIDO[s.sido] || '')}</small></button></li>`).join('');
@@ -171,7 +176,7 @@ async function findSchool() {
       try {
         const r = await selectSchool(sc.code, sc.sido);
         if (r.ok) { hubSave({ noSchool: false }); const go = schoolThen; schoolThen = null; hide(); refreshSchoolRank(); go && go(); return; }
-        msg.textContent = r.error === 'today' ? '학교는 하루에 한 번만 바꿀 수 있어요' : '저장하지 못했어요 — 다시 해 주세요';
+        msg.textContent = r.error === 'today' ? (r.per > 1 ? `학교는 하루에 ${r.per}번까지 바꿀 수 있어요 — 내일 다시 바꿀 수 있어요` : '학교는 하루에 한 번만 바꿀 수 있어요') : '저장하지 못했어요 — 다시 해 주세요';
       } catch { msg.textContent = '서버가 잠시 대답이 없어요 — 다시 해 주세요'; }
     });
   } catch { msg.textContent = '서버가 잠시 대답이 없어요 — 인터넷을 확인해 주세요'; }
@@ -300,7 +305,8 @@ export async function gbFinish(ref, cleared) {
   if (!ref) return null;
   if (liveRef && liveRef.ref === ref) liveRef = null;
   const j = await reportResult(ref, cleared);
-  refreshSchoolRank();
+  if (j && j.ok && j.top && rankEl) { rankData = j.top; paintRank(); }   // 결과에 순위가 같이 온다(1.12.0) — /schools 를 또 부르지 않는다
+  else refreshSchoolRank();
   return j && j.ok ? j : null;
 }
 /** 판 중간에 나감 — 90초 안이면 이용권 환불, 넘었으면 «끝까지 못 감»(1점)으로 정산 */
@@ -310,8 +316,7 @@ export async function gbLeave(ref) {
   if (liveRef && liveRef.ref === ref) liveRef = null;
   if (fresh) {
     const r = await refundTicket(ref);
-    refreshSchoolRank();
-    if (r && r.ok) return null;
+    if (r && r.ok) return null;   // 환불 = 점수 없음 → 순위가 안 바뀌니 다시 받지 않는다(1.12.0)
     // 환불 창(서버 90초)을 넘겼거나 거절 — «끝까지 못 감»으로 닫는다(교차검증 codex·grok: 이용권만 깎이고 정산 0)
   }
   return gbFinish(ref, false);

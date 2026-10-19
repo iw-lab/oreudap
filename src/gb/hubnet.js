@@ -6,7 +6,13 @@
  */
 const cfg = { key: 'gb.hub.v1', base: 'api/hub/', timeoutMs: 6000, offline: false };
 /** 게임마다 한 번: configureHub({ key: '<게임id>.hub.v1' }) — 같은 도메인의 다른 게임과 저장소 키가 안 겹치게 */
-export function configureHub(o) { Object.assign(cfg, o || {}); hubState.school = localSchool(); }
+export function configureHub(o) {
+  Object.assign(cfg, o || {});
+  /* 직결(1.11.1): direct = 허브 워커 주소 — 로컬 시험(localhost·127.0.0.1·.test)이 아닐 때만 중계(/api/hub) 대신 워커로 바로 간다.
+     daum Pages 함수 하루 10만 공용 한도가 넘으면 /api 가 첫 화면 html 로 바뀌어 순위가 죽었다(2026-10-19 밤). 로컬 시험은 가짜 중계를 그대로 쓴다 */
+  if (cfg.direct && typeof location !== 'undefined' && !/^(localhost|127\.0\.0\.1|\[::1\])$|\.(test|localhost)$/.test(location.hostname)) cfg.base = cfg.direct.replace(/\/?$/, '/');
+  hubState.school = localSchool();
+}
 
 /* 🏫 학교는 기기에 저장한다(1.6.1 · 2026-10-17 사용자 «한 번만 하면 반드시 로컬에 학교 저장»).
  *  예전엔 학교가 허브 서버에만 있었다 — 첫 /me 가 오기 전에 누르거나(아침 첫 접속 = 서버 콜드 스타트),
@@ -37,7 +43,7 @@ async function hubCall(path, body, method = 'POST') {
   const ctl = new AbortController(); const tm = setTimeout(() => ctl.abort(), cfg.timeoutMs);
   try {
     const r = await fetch(cfg.base + path, method === 'GET' ? { signal: ctl.signal, cache: 'no-store' } : {
-      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ...body, did: hubDid() }), signal: ctl.signal,
+      method: 'POST', headers: { 'content-type': 'text/plain' }, body: JSON.stringify({ ...body, did: hubDid() }), signal: ctl.signal,   // text/plain = 단순 요청 — 워커를 바로 부를 때(DIRECT_ORIGINS) 사전 확인(OPTIONS) 요청이 안 붙는다
       keepalive: true,   // 창을 닫는 순간(pagehide)의 정산도 끝까지 간다
     });
     const j = await r.json().catch(() => null);

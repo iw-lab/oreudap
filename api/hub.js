@@ -28,7 +28,12 @@ export default async function handler(request) {
   const ip = (request.headers.get('x-real-ip') || request.headers.get('x-vercel-forwarded-for') || '').split(',')[0].trim();
   if (ip && env.IP_SALT) headers['x-bo-iph'] = await ipHash(ip, env.IP_SALT);
   const init = { method: request.method === 'POST' ? 'POST' : 'GET', headers };
-  if (init.method === 'POST') { const t = await request.text(); if (t.length > 8192) return J({ error: 'big' }, 413); init.body = t; }
+  if (init.method === 'POST') {   // 본문은 8KB 까지만 읽는다 — 큰 본문을 통째로 메모리에 올린 뒤 재면 동시 요청으로 중계를 말릴 수 있다(2026-10-19 codex·gemini 교차검증)
+    if (Number(request.headers.get('content-length') || 0) > 8192) return J({ error: 'big' }, 413);
+    const rd = request.body?.getReader(); const parts = []; let n = 0;
+    if (rd) for (;;) { const { done, value } = await rd.read(); if (done) break; n += value.byteLength; if (n > 8192) { rd.cancel().catch(() => {}); return J({ error: 'big' }, 413); } parts.push(value); }
+    const buf = new Uint8Array(n); let o = 0; for (const p of parts) { buf.set(p, o); o += p.byteLength; } init.body = new TextDecoder().decode(buf);
+  }
   try {
     const r = await fetch(dst, init);
     // 순위도 캐시 금지 — 판 끝나고 바로 열면 옛 점수가 보였다(비트:온 e2e R-9 · 응답에 «내 학교»가 섞여 개인화이기도 하다)
