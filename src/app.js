@@ -124,7 +124,7 @@ export class App {
   }
 
   init() {
-    configureHub({ key: 'oreudap.hub.v1' });
+    configureHub({ key: 'oreudap.hub.v1', direct: 'https://oreudap-hub.markmoim-sync.workers.dev' });
     configureSchool({ freePlay: true, playWord: '오르기', sfx: { tick: () => this.sound.play('button'), win: () => this.sound.play('streak') } });
     mountSchoolRank($('#schoolRank'));
     bindFullscreenButton($('#btnFull'));

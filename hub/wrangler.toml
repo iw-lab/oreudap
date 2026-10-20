@@ -11,4 +11,5 @@ database_name = "oreudap-hub"
 database_id = "c99cd02b-b7fb-4644-a786-f5294674967c"
 
 [vars]
+DIRECT_ORIGINS = "https://oreudap.vercel.app,https://*.oreudap.vercel.app"   # 직결(키트 direct.sh) — 무료 계정 Pages 함수 공용 한도와 무관하게 순위
 FREE_PLAY = "1"
