@@ -96,7 +96,7 @@ async function main() {
 
   // 🔴 startRun 은 인자를 받지 않는다 — 과목은 app.subject 다. 인자를 주면 조용히 무시되고
   //    기본 과목(구구단)이 돌아 «영어 문항 0개»인 채로 측정이 성립한 척한다(실제로 그랬다).
-  await page.evaluate(() => { window.__SMOKE__.app.subject = 'words34'; window.__SMOKE__.app.startRun(); });
+  await page.evaluate(() => { window.__SMOKE__.app.subject = 'words34'; window.__SMOKE__.app.startRun(); /* v3: 발음을 재는 검사 — 부하로 시간초과가 나도 «한 번 틀리면 추락»으로 표본이 끊기지 않게 */ window.__SMOKE__.app.core.hearts = 99; });
   await page.waitForFunction(() => {
     const a = window.__SMOKE__.app;
     return a.core && a.core.phase === 'question';
@@ -176,7 +176,7 @@ async function main() {
     a.quitRun();
     window.__TTS__.length = 0;
     a.subject = 'korean34';
-    a.startRun();
+    a.startRun(); /* v3: 발음을 재는 검사 — 부하로 시간초과가 나도 «한 번 틀리면 추락»으로 표본이 끊기지 않게 */ window.__SMOKE__.app.core.hearts = 99;
   });
   await page.waitForFunction(() => {
     const a = window.__SMOKE__.app;

@@ -208,9 +208,10 @@ async function main() {
     while ((!app.core || app.core.phase !== 'question') && Date.now() - t < 8000) {
       await new Promise((r) => setTimeout(r, 60));
     }
-    // 하트를 다 잃어 «진짜» 결과 화면으로 간다(quitRun 은 타이틀로 가므로 못 쓴다)
+    // 추락해 «결과 보기»로 «진짜» 결과 화면으로 간다(quitRun 은 타이틀로 가므로 못 쓴다)
     for (let i = 0; i < 40 && !app.settled; i += 1) {
       const c = app.core;
+      if (c && c.phase === 'down') { app.giveUp(); continue; }   // v3: 추락 → «결과 보기»
       if (!c || c.phase !== 'question' || c.answered) { await new Promise((r) => setTimeout(r, 120)); continue; }
       app.press((c.question.answerIndex + 1) % c.question.choices.length, 'pointer');
       await new Promise((r) => setTimeout(r, 200));
@@ -227,7 +228,7 @@ async function main() {
       cause: document.querySelector('#result-cause')?.textContent || '',
     };
   });
-  if (!stop.onResult) FAIL('하트를 다 잃었는데 결과 화면이 아니다 — 측정 무효');
+  if (!stop.onResult) FAIL('추락해 결과 보기를 했는데 결과 화면이 아니다 — 측정 무효');
   if (!stop.text) FAIL('결과 화면에 「그만두는 길」이 없다 — 종료점을 없애면 안 된다');
   if (stop.h < 44) FAIL(`종료 버튼 높이 ${Math.round(stop.h)}px < 44px — 있으나 못 누른다`);
   // 🔴 목표가 하나뿐이면 그것을 넘은 순간 갈 곳이 없어진다. 성격이 다른 것을 겹쳐야 한다.

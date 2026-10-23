@@ -134,7 +134,7 @@ export class QuestionSource {
   }
 
   /** 다음 문항. branches·floor 는 호출자가 층에서 계산해 넘긴다. */
-  next(branches, floor = 1) {
+  next(branches, floor = 1, forceId = null) {
     const deck = this.decks[branches];
     if (!deck) throw new Error(`덱 없음: ${branches}`);
 
@@ -142,7 +142,11 @@ export class QuestionSource {
     let item = null;
     let fromReview = false;
     const dueId = this.sessionQueue.due(this.index + 1); // this.index+1 = 지금 낼 문항 번호
-    if (dueId && this.byId.has(dueId)) {
+    if (forceId && this.byId.has(forceId)) {
+      // 다시 일어서기의 첫 문제 = 방금 놓친 문제(보기 순서는 새로 섞는다)
+      item = this.byId.get(forceId);
+      fromReview = true;
+    } else if (dueId && this.byId.has(dueId)) {
       item = this.byId.get(dueId);
       fromReview = true;
     } else {

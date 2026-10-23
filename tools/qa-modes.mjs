@@ -122,8 +122,9 @@ async function main() {
   if (h.mode !== 'classic') FAIL(`클래식을 골랐는데 ${h.mode} 로 시작했다`);
   if (h.stamina) FAIL('클래식에 기력 막대가 보인다 — 모드가 서로 새고 있다');
   if (h.clock) FAIL('클래식에 판 시계가 보인다');
-  if (!h.hearts) FAIL('클래식에 하트가 안 보인다');
-  NOTE(`클래식: 하트 O · 기력 X · 시계 X`);
+  // v3: 클래식은 «한 번 틀리면 추락»이라 하트 칸을 그리지 않는다(한 칸짜리 하트는 정보가 없다)
+  if (h.hearts) FAIL('클래식에 하트가 보인다 — 한 번 틀리면 추락인데 목숨이 있는 것처럼 보인다');
+  NOTE(`클래식: 하트 X(추락형) · 기력 X · 시계 X`);
 
   // ② 아슬아슬 — 기력이 보이고 «줄어든다», 하트는 없다
   await startVia(page, 'thrill');
@@ -142,11 +143,19 @@ async function main() {
   const low = await page.evaluate(hud);
   if (!low.danger) FAIL('기력이 위험 구간인데 아슬아슬 연출이 안 켜졌다');
   await page.evaluate(() => { window.__SMOKE__.app.core.stamina = 0.002; });
+  // v3: 기력 0 = 추락 → «다시 일어서기» 창. 창이 떠 있는 동안 위험 연출(심장 소리)은 꺼져야 한다
+  await page.waitForFunction(() => window.__SMOKE__.app.core.phase === 'down', null, { timeout: 8000 })
+    .catch(() => FAIL('기력이 0 이 됐는데 추락하지 않는다'));
+  await page.waitForSelector('#overlay-revive:not([hidden])', { timeout: 5000 })
+    .catch(() => FAIL('추락했는데 다시 일어서기 창이 안 뜬다'));
+  const downHud = await page.evaluate(hud);
+  if (downHud.danger) FAIL('추락해 창이 떠 있는데 위험 연출이 남아 있다');
+  await page.click('#btn-revive-no');
   await page.waitForFunction(() => window.__SMOKE__.app.core.phase === 'over', null, { timeout: 8000 })
-    .catch(() => FAIL('기력이 0 이 됐는데 판이 끝나지 않는다'));
+    .catch(() => FAIL('«결과 보기»를 눌렀는데 판이 끝나지 않는다'));
   const after = await page.evaluate(hud);
   if (after.danger) FAIL('판이 끝났는데 위험 연출이 남아 있다');
-  NOTE('아슬아슬: 위험 연출 O · 기력 0 에서 판 종료 · 종료 후 연출 정리 O');
+  NOTE('아슬아슬: 위험 연출 O · 기력 0 에서 추락 · 다시 일어서기 창 O · 결과 보기로 종료 · 연출 정리 O');
 
   // ④ 60초 질주 — 판 시계가 보이고 줄어든다
   await startVia(page, 'sprint');

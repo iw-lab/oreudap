@@ -64,6 +64,13 @@ export const JUICE = {
   heart: ['sfx', 'pop', 'punch', 'haptic'],                // 하트 회복
   record: ['sfx', 'banner', 'burst', 'flash'],             // 판 도중 최고 기록을 넘는 순간(한 판에 한 번)
   school: ['sfx', 'banner', 'pop', 'punch'],               // 결과 — 우리 학교 +N점
+  // v3 — 한 번 틀리면 추락 · 다시 일어서기 · 불꽃 계단 · 간발 · 미끄럼(질주)
+  fall: ['sfx', 'flash', 'punch', 'haptic'],               // 추락(다시 일어서기 창이 뜨기 전)
+  reviveStep: ['sfx', 'pop', 'punch', 'haptic'],          // 다시 일어서기 한 문제 맞힘(1/3·2/3)
+  revived: ['sfx', 'banner', 'burst', 'flash', 'haptic'],  // 3연속 — 그 자리에서 다시 출발
+  fever: ['sfx', 'banner', 'burst', 'flash', 'haptic'],    // 10연속 — 불꽃 계단 시작(코인 2배)
+  close: ['sfx', 'pop', 'punch'],                          // 제한시간 끝자락 정답 «간발!»
+  slide: ['sfx', 'pop', 'punch', 'haptic'],                // 60초 질주 오답 — 한 칸 미끄러짐 −2초
 };
 
 const SUBJECT_META = {
@@ -76,9 +83,9 @@ const SUBJECT_META = {
 
 // 모드 카드 — 키트 kind 에 맞춘다(classic·time·survival + rule·daily). 카드를 누르면 그 모드로 «바로» 시작한다.
 const MODE_CARDS = [
-  { id: 'classic', kind: 'classic', desc: '하트 3개로 끝까지' },
-  { id: 'sprint', kind: 'time', desc: '1분 안에 몇 층?' },
-  { id: 'thrill', kind: 'survival', desc: '기력이 계속 줄어요' },
+  { id: 'classic', kind: 'classic', desc: '한 번 틀리면 추락!' },
+  { id: 'sprint', kind: 'time', desc: '1분 안에 몇 층? 틀리면 미끄럼' },
+  { id: 'thrill', kind: 'survival', desc: '기력이 계속 줄어요 · 틀려도 추락' },
   { id: 'mirror', kind: 'rule', desc: '56 → 7 × 8 찾기' },
   { id: 'daily', kind: 'daily', desc: '오늘의 판 · 별 3개' },
 ];
@@ -119,7 +126,7 @@ export class App {
       haptics: () => this.data.settings.sound !== false,
       sfx: (name, o) => this.sound.play(name, 0.65 * ((o && o.vol) || 1)),
       burst: () => { if (this.scene) this.scene.celebrate(); },
-      punch: { correct: '#hud-floor', wrong: '#hud-hearts', streak: '#streak-chip', milestone: '#hud-floor', land: '#hud-floor', coin: '#streak-chip', heart: '#hud-hearts', school: '#result-school' },
+      punch: { correct: '#hud-floor', wrong: '#qcard', streak: '#streak-chip', milestone: '#hud-floor', land: '#hud-floor', coin: '#streak-chip', heart: '#hud-hearts', school: '#result-school', fall: '#qcard', reviveStep: '#revive-chip', fever: '#streak-chip', close: '#hud-floor', slide: '#run-clock' },
     });
   }
 
@@ -146,6 +153,8 @@ export class App {
   // ── 화면 ────────────────────────────────────────────────
   go(name) {
     this.screen = name;
+    // 추락 창은 판 화면에만 속한다 — 다른 화면으로 가면 반드시 닫는다(안 닫으면 첫 화면 주 단추를 덮는다, qa-play 가 잡음)
+    if (name !== 'play') { clearTimeout(this._downTimer); $('#overlay-revive').hidden = true; $('#revive-chip').hidden = true; }
     for (const s of document.querySelectorAll('.screen')) s.classList.remove('active');
     const target = $(`#screen-${name}`);
     if (target) target.classList.add('active');
@@ -176,6 +185,8 @@ export class App {
       this.play(() => (daily ? this.startDaily(this.subject) : this.startRun()));
     });
     $('#btn-how-start').addEventListener('click', () => { this.sound.unlock(); this.hideHow(); });
+    $('#btn-revive').addEventListener('click', () => this.revive());
+    $('#btn-revive-no').addEventListener('click', () => this.giveUp());
     // 🔴 pause() 를 부르면 «잠깐 멈춤» 카드가 안내 위를 덮어 버튼을 못 누른다(D35 가 잡았다).
     //    시계만 세우고 카드는 띄우지 않는다 — 멈춤 해제는 hideHow 가 한다.
     $('#btn-how').addEventListener('click', () => {
@@ -397,16 +408,23 @@ export class App {
     this.smokeRun = 0;
     this.settled = false;
     this._recordFired = false;
-    this.core = new GameCore({ seed, subject: this.subject, scope: this.scope, mode: this.mode, notes: this.notes });
+    this.core = new GameCore({ seed, subject: this.subject, scope: this.scope, mode: this.mode, notes: this.notes, revive: true });
     this.runStartCoins = this.data.coins;
     this.paused = false;
+    this._approachSaid = 0;
+    this._pendingSlide = false;
+    clearTimeout(this._downTimer);
     $('#overlay-pause').hidden = true;
+    $('#overlay-revive').hidden = true;
+    $('#revive-chip').hidden = true;
+    this.setFeverChip(false);
     this.go('play');
     this.onResize();
     if (this.scene) {
       this.scene.resetWorld();
       this.scene.setSkin(this.data.skin);
       this.scene.setTheme(this.data.theme);
+      this.scene.setBest(this.data.best[this.bestKey()] || 0);
     }
     // 🔴 처음이면 안내를 먼저 띄우고 «판을 멈춘 채» 기다린다. 안내를 읽는 동안 시간이
     //    흐르면(특히 아슬아슬 모드는 기력이 줄면) 읽자마자 죽는다.
@@ -439,6 +457,10 @@ export class App {
     this.sound.stopBgm();
     this.voice.stop();
     this.updateDanger(false);
+    clearTimeout(this._downTimer);
+    $('#overlay-revive').hidden = true;
+    $('#revive-chip').hidden = true;
+    this.setFeverChip(false);
     if (!silent && this.core) this.showResult();
     this.clearChoices();
   }
@@ -455,7 +477,7 @@ export class App {
   }
 
   pause() {
-    if (this.screen !== 'play' || !this.core || this.core.phase === PHASE.OVER) return;
+    if (this.screen !== 'play' || !this.core || this.core.phase === PHASE.OVER || this.core.phase === PHASE.DOWN) return;
     this.paused = true;
     this.sound.stopBgm();
     this.voice.stop();
@@ -473,6 +495,7 @@ export class App {
   // ── 입력 ────────────────────────────────────────────────
   onKey(e) {
     if (this.screen !== 'play' || !this.core) return;
+    if (this.core.phase === PHASE.DOWN) return;      // 다시 일어서기 창 — 단추로만 고른다
     if (e.key === 'Escape') { this.paused ? this.resume() : this.pause(); return; }
     if (this.paused) return;
     // 🔴 키를 누르고 있으면 keydown 이 자동 반복된다 — 막지 않으면 손을 안 떼도 다음 문항이 계속 풀린다.
@@ -514,19 +537,103 @@ export class App {
     $('#qtext').textContent = q.prompt;
     $('#qsub').textContent = q.promptSub || '';
     this.buildChoices(q);
+    this.updateReviveChip();
     // 🔴 영어→뜻 문제는 낱말을 «보여 주면서» 읽어 준다. 뜻→영어 문제에서 미리 읽으면
     //    정답을 그대로 알려 주는 것이라, 그쪽은 푼 뒤에 읽는다(onResolve).
     if (q.word) {
       if (q.dir === 'w2k') this.voice.speak(q.word, q.lang);
       else if (q.lang !== 'ko') this.voice.prefetch(q.word);   // 답을 낼 때 끊기지 않게 미리 받아만 둔다
     }
-    if (this.scene) this.scene.showRow(q.choices.length);
+    if (this.scene) {
+      // 60초 질주 오답 — 정답 하이라이트를 다 보여 준 «뒤»에 미끄러진다(갈래 행이 DOM 칸과 어긋나지 않게)
+      if (this._pendingSlide) { this._pendingSlide = false; this.scene.slideDown(); }
+      this.scene.showRow(q.choices.length, this.core.floor + 1);
+    }
+    // 최고 기록이 코앞 — 3층 남았을 때부터 한 번씩 알린다(같은 거리를 두 번 말하지 않는다)
+    const best = this.data.best[this.bestKey()] || 0;
+    const gap = best - this.core.floor;
+    if (best > 0 && !this.core.reviving && gap >= 1 && gap <= 3 && this._approachSaid !== gap && !this.smokeMode) {
+      this._approachSaid = gap;
+      this.say($('#feedback'), gap === 1 ? '다음 칸이 최고 기록!' : `최고 기록까지 ${gap}층!`, 'good');
+    }
     this.updateHud();
+  }
+
+  /** 다시 일어서기 진행 칩 — «몇 문제 남았나» */
+  updateReviveChip() {
+    const c = this.core;
+    const chip = $('#revive-chip');
+    if (!c || !c.reviving) { chip.hidden = true; return; }
+    chip.hidden = false;
+    chip.textContent = `다시 일어서기 ${c.reviving.got} / ${c.reviving.need}`;
+  }
+
+  /** 불꽃 계단 칩 — 연속 정답이 이어지는 동안 «계속» 보인다 */
+  setFeverChip(on, streak = 0) {
+    const chip = $('#streak-chip');
+    chip.classList.toggle('is-fever', !!on);
+    if (!on) { if (this._feverOn) chip.hidden = true; this._feverOn = false; return; }
+    this._feverOn = true;
+    clearTimeout(this._streakTimer);
+    chip.hidden = false;
+    chip.innerHTML = `${icon('flame')}<span>불꽃 ${streak}연속 · 코인 2배</span>`;
+  }
+
+  /** 추락 — 떨어지는 장면을 보여 준 뒤 «다시 일어서기» 창 */
+  onDown(ev) {
+    this.J.fire('fall', { sfx: 'gameover', color: '#ff6b6b' });
+    if (this.scene) { this.scene.setFever(false); this.scene.fall(); }
+    this.setFeverChip(false);
+    this.updateDanger(false);
+    this.clearChoices();
+    $('#revive-chip').hidden = true;
+    $('#revive-floor').textContent = ev.floor;
+    $('#revive-need').textContent = ev.need;
+    const runAt = this.core;
+    clearTimeout(this._downTimer);
+    this._downTimer = setTimeout(() => {
+      if (this.core === runAt && this.core.phase === PHASE.DOWN && this.screen === 'play') $('#overlay-revive').hidden = false;
+    }, this.data.settings.reducedMotion ? 60 : 820);
+  }
+
+  revive() {
+    const c = this.core;
+    if (!c || c.phase !== PHASE.DOWN) return;
+    $('#overlay-revive').hidden = true;
+    this.sound.play('button');
+    const evs = c.beginRevive();
+    this.lastFrame = performance.now();
+    for (const ev of evs) if (ev.type === 'question') this.onQuestion();
+  }
+
+  giveUp() {
+    const c = this.core;
+    if (!c || c.phase !== PHASE.DOWN) return;
+    $('#overlay-revive').hidden = true;
+    for (const ev of c.giveUp()) {
+      if (ev.type === 'gameover') { this.lastCause = ev.cause || 'wrong'; this.endRun(false); }
+    }
   }
 
   onResolve(res) {
     const q = this.core.question;
     const fb = $('#feedback');
+    if (res.type === 'correct' && res.revive) {
+      // 다시 일어서기 — 층은 그대로, 맞힌 수만 오른다
+      this.markChoice(q.answerIndex, 'is-correct');
+      if (q.word && q.dir === 'k2w') this.voice.speak(q.word, q.lang);
+      const chip = $('#revive-chip').getBoundingClientRect();
+      if (res.revive.done) {
+        $('#revive-chip').hidden = true;
+        this.J.fire('revived', { sfx: 'record', title: '다시 출발!', color: '#8fe3c0' });
+        this.say(fb, `${res.floor}층에서 다시 올라가요!`, 'good');
+      } else {
+        this.updateReviveChip();
+        this.J.fire('reviveStep', { sfx: 'correct', x: chip.left + chip.width / 2, y: chip.top - 6, text: `${res.revive.got} / ${res.revive.need}`, color: '#ffe9a8' });
+      }
+      this.updateHud();
+      return;
+    }
     if (res.type === 'correct') {
       const floorPos = $('#hud-floor').getBoundingClientRect();
       this.J.fire('correct', { x: floorPos.left + floorPos.width / 2, y: floorPos.top + floorPos.height / 2, text: '+1', color: '#7ff8ee' });
@@ -541,9 +648,18 @@ export class App {
       const runAt = this.core;
       clearTimeout(this._landTimer);
       this._landTimer = setTimeout(() => { if (this.core === runAt && this.screen === 'play') this.J.fire('land', { vol: 0.8 }); }, TIMING.JUMP_MS || 220);
+      if (res.close) {
+        const qc = $('#qcard').getBoundingClientRect();
+        this.J.fire('close', { sfx: 'heartbeat', x: qc.left + qc.width / 2, y: qc.bottom + 14, text: '간발!', color: '#ffb347' });
+      }
+      if (res.feverStart) {
+        this.J.fire('fever', { sfx: 'streak', title: '불꽃 계단! 코인 2배', color: '#ffb347' });
+        if (this.scene) this.scene.setFever(true);
+      }
+      if (res.fever) this.setFeverChip(true, this.core.streak);
       if (res.bonus) {
-        this.J.fire('streak', { title: `${this.core.streak}연속!`, color: '#ffe066' });
-        this.flashStreak(this.core.streak, res.healed);
+        if (!res.feverStart) this.J.fire('streak', { title: `${this.core.streak}연속!`, color: '#ffe066' });
+        if (!res.fever) this.flashStreak(this.core.streak, res.healed);
         const sp = $('#hud-floor').getBoundingClientRect();
         this.J.fire('coin', { x: sp.left + sp.width / 2, y: sp.bottom + 24, text: '+5', color: '#ffd24a' });
         if (res.healed) {
@@ -565,6 +681,14 @@ export class App {
       else if (res.graduated === 'graduated') this.say(fb, '오늘은 이 문제 통과!', 'good');
     } else {
       this.J.fire('wrong', { sfx: res.type === 'timeout' ? 'timeout' : 'wrong', color: '#ff6b6b' });
+      if (this.scene) this.scene.setFever(false);
+      this.setFeverChip(false);
+      if (res.reviveFailed) $('#revive-chip').hidden = true;
+      if (res.slid || res.penaltyMs) {
+        const ck = $('#run-clock').getBoundingClientRect();
+        this.J.fire('slide', { sfx: 'timeout', x: ck.left + ck.width / 2, y: ck.bottom + 16, text: `${res.slid ? '−1층 · ' : ''}−${Math.round(res.penaltyMs / 1000)}초`, color: '#ff8a96' });
+        this._pendingSlide = res.slid > 0;
+      }
       if (this.scene) this.scene.stumble(res.chose, q.answerIndex);
       if (res.chose != null) this.markChoice(res.chose, 'is-wrong');
       this.markChoice(q.answerIndex, 'is-correct');
@@ -643,7 +767,8 @@ export class App {
     if (!c) return;
     $('#hud-floor').textContent = c.floor;
     const hearts = $('#hud-hearts');
-    const useHearts = c.rules.hearts > 0;
+    // v3: 하트 1개(한 번 틀리면 추락)·0개(질주) 모드는 하트를 그리지 않는다 — 한 칸짜리 하트는 정보가 없다
+    const useHearts = c.rules.hearts > 1;
     hearts.hidden = !useHearts;
     if (useHearts) {
       const n = c.rules.hearts;
@@ -672,7 +797,7 @@ export class App {
       clock.classList.toggle('is-low', left <= 10);
     }
 
-    this.updateDanger(c.lowStamina);
+    this.updateDanger(c.lowStamina && c.phase !== PHASE.DOWN && !c.reviving);
     this.updateSide();
   }
 
@@ -726,7 +851,7 @@ export class App {
       $('#stamina-fill').style.width = `${(c.stamina * 100).toFixed(1)}%`;
       $('#stamina-cap').style.width = `${(c.staminaCap * 100).toFixed(1)}%`;
       $('#hud-stamina').classList.toggle('is-low', c.lowStamina);
-      this.updateDanger(c.lowStamina && c.phase !== PHASE.OVER);
+      this.updateDanger(c.lowStamina && c.phase !== PHASE.OVER && c.phase !== PHASE.DOWN && !c.reviving);
     }
     if (c.runEndsAt > 0) {
       const left = c.runLeftMs / 1000;
@@ -758,11 +883,11 @@ export class App {
       : touch ? '정답이 적힌 발판을 손가락으로 눌러요'
         : '정답이 적힌 발판을 누르거나 ← → 키를 눌러요';
     const rules = MODES[this.mode];
-    $('#how-life').textContent = rules.stamina ? '기력이 확 줄어요' : `하트가 하나 줄어요 (${rules.hearts}개)`;
+    $('#how-life').textContent = rules.slide ? '한 칸 미끄러지고 2초가 깎여요' : '바로 떨어져요!';
     $('#how-tip').textContent = rules.stamina
-      ? '기력은 가만히 있어도 계속 줄어요. 빨리 맞힐수록 더 채워져요.'
-      : rules.runMs ? '1분 동안 몇 층까지 오르는지 겨뤄요.'
-        : '10층마다 금빛 발판이 남아요. 어디까지 올라갈 수 있을까요?';
+      ? '기력은 가만히 있어도 계속 줄어요. 빨리 맞힐수록 더 채워져요. 떨어져도 한 번은 다시 일어설 수 있어요.'
+      : rules.runMs ? '1분 동안 몇 층까지 오르는지 겨뤄요. 찍으면 미끄러져요!'
+        : '10연속이면 불꽃 계단(코인 2배)! 떨어져도 한 번은 놓친 문제부터 3문제를 연달아 맞히면 다시 일어서요.';
     $('#overlay-how').hidden = false;
     return true;
   }
@@ -1104,8 +1229,8 @@ export class App {
         // 스모크는 «연속 시뮬»이다 — 한 판이 끝나면 결정론적으로 다음 판을 잇는다.
         // 그래야 런 재시작 경로(GameObject 전수 리셋)가 반복 검증되고, 숨은 탭 전진도 잴 수 있다.
         if (this.smokeMode) this.smokeRestart();
-        else { this.sound.play('gameover'); this.lastCause = ev.cause || 'hearts'; this.endRun(false); }
-      }
+        else { this.sound.play('gameover'); this.lastCause = ev.cause || 'wrong'; this.endRun(false); }
+      } else if (ev.type === 'down') this.onDown(ev);
     }
     this.updateTimer();
   }

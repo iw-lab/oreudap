@@ -34,12 +34,14 @@ const median = (a) => { const s = [...a].sort((x, y) => x - y); return s[Math.fl
 
 /** policy: know(p) · random · position(위치 이력 카운팅) */
 function run({ seed, p = 0, policy = 'know', mode = 'classic', subject = 'gugudan' }) {
-  const core = new GameCore({ seed, subject, mode, notes: new PersistentNotes(), now: () => 1_700_000_000_000 });
+  const core = new GameCore({ seed, subject, mode, notes: new PersistentNotes(), now: () => 1_700_000_000_000, revive: true });
   const rng = makeRng((seed * 2654435761 + 977) >>> 0);
   core.start();
   let pending = null, guard = 0, qTime = 0;
   const hist = [];
   while (core.phase !== PHASE.OVER && core.t < MAX_MS && guard++ < 300000) {
+    // v3: 실제 판처럼 «다시 일어서기»를 받는다(판마다 1번 · 놓친 문제부터 3연속)
+    if (core.phase === PHASE.DOWN) { core.beginRevive(); pending = null; }
     if (core.phase === PHASE.QUESTION && !core.answered) qTime += STEP;
     if (core.phase === PHASE.QUESTION && !core.answered && !pending) {
       const q = core.question, k = q.choices.length;
@@ -108,7 +110,7 @@ for (const [label, startFloor, subject, mode] of [['구구단', 0, 'gugudan', 'c
   ['영단어', 0, 'words34', 'classic'], ['국어', 0, 'korean34', 'classic'], ['거울', 0, 'gugudan', 'mirror']]) {
   const served = [];
   for (let s = 1; s <= 30; s++) {
-    const core = new GameCore({ seed: 1000 + s, subject, mode, notes: new PersistentNotes(), now: () => 1_700_000_000_000 });
+    const core = new GameCore({ seed: 1000 + s, subject, mode, notes: new PersistentNotes(), now: () => 1_700_000_000_000, revive: true });
     core.floor = startFloor;   // 3갈래 구간에서 출발(층 60+ = 항상 3갈래)
     core.start();
     for (let i = 0; i < 25 && core.question; i++) {

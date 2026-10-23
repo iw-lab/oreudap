@@ -200,6 +200,9 @@ async function main() {
     await snap(page, '02-subject-gugudan');
 
     await page.click('#btn-play');   // v2: 첫 화면 주 단추(범위 화면 없음)
+    // v3(한 번 틀리면 추락): 이 검사는 «모양»을 잰다. 스크린샷·대비 측정이 부하로 길어지면 시간초과 한 번에
+    //    판이 추락해 창이 화면을 덮는다 — 하트를 넉넉히 줘서 판을 세워 둔다(추락 흐름은 qa-play·qa-modes 가 잰다)
+    await page.evaluate(() => { window.__SMOKE__.app.core.hearts = 99; });
     await page.waitForTimeout(500);
     await snap(page, '03-play-2way');
 
@@ -237,11 +240,12 @@ async function main() {
     if (pause.w < 44 || pause.h < 44) FAIL(`일시정지 버튼 ${pause.w}×${pause.h} < 44px`);
 
     // 오답 하이라이트 — 문항이 «답할 수 있는» 상태일 때 누른다(호스트 부하로 앞 연출이 늦으면 입력이 무시돼 0개로 거짓 FAIL)
-    await page.waitForFunction(() => { const c = window.__SMOKE__.app.core; return c.phase === 'question' && !c.answered; }, null, { timeout: 15000 });
+    // v3: 앞 장면을 찍는 동안 시간초과가 나면 «한 번 틀리면 추락»이라 다시 일어서기 창에서 멈춘다 — 일으켜 세운다
+    await page.waitForFunction(() => { const a = window.__SMOKE__.app; const c = a.core; if (c.phase === 'down') a.revive(); return c.phase === 'question' && !c.answered; }, null, { timeout: 15000 });
     const wrongAt = await page.evaluate(() => {
       const app = window.__SMOKE__.app;
       // 🔴 앞 장면을 찍는 동안(부하 50+) 시간초과로 하트가 줄어 있으면 이 오답이 «게임 끝»이 되어 보기 자체가 사라진다 — 하이라이트를 재려는 것이지 하트를 재는 게 아니다
-      app.core.hearts = 3;
+      app.core.hearts = 99;   // v3 하트 1개 — 찍는 동안의 시간초과로 판이 끝나지 않게 넉넉히
       const q = app.core.question;
       app.press((q.answerIndex + 1) % q.choices.length);
       return { phase: app.core.phase, last: app.core.lastResult && app.core.lastResult.type };
@@ -261,6 +265,7 @@ async function main() {
     await page.evaluate(() => {
       const app = window.__SMOKE__.app;
       app.core.floor = 61;
+      app.core.hearts = 99;
       // 🔴 스크린샷·대비 측정이 길어 오답 해결 국면이 이미 지나 다음 문항(2갈래)이 떠 있을 수 있다 —
       //    «해결 국면이 지금 끝난다»로 명시해 층 61 기준의 새 문항을 «반드시» 만들게 한다(시간에 기대지 않는다)
       app.core.phase = 'resolve';
@@ -274,16 +279,20 @@ async function main() {
     else assertChoices(m3, '3갈래');
     await snap(page, '05-play-3way');
 
+    // v3: 3갈래를 찍는 사이 시간초과로 추락했으면 일으켜 세운다(추락 창이 일시정지 단추를 덮는다)
+    await page.waitForFunction(() => { const a = window.__SMOKE__.app; const c = a.core; if (c.phase === 'down') { if (c.revivesLeft <= 0) c.revivesLeft = 1; a.revive(); } return c.phase === 'question' || c.phase === 'resolve'; }, null, { timeout: 15000 });
     await page.click('#btn-pause');
     await page.waitForTimeout(180);
     await snap(page, '06-pause');
     await page.click('#btn-resume');
     await page.waitForTimeout(120);
 
-    // 하트 소진 → 결과
+    // 추락 → (다시 일어서기 창) → 결과 보기 → 결과
     await page.evaluate(() => {
       const app = window.__SMOKE__.app;
+      app.core.hearts = 1;
       for (let i = 0; i < 8 && app.core.phase !== 'over'; i++) {
+        if (app.core.phase === 'down') { app.giveUp(); break; }
         const q = app.core.question;
         if (q && app.core.phase === 'question') app.press((q.answerIndex + 1) % q.choices.length);
         app.step(1500);
@@ -292,7 +301,7 @@ async function main() {
     await page.waitForTimeout(350);
     await snap(page, '07-result');
     const onResult = await page.evaluate(() => document.querySelector('#screen-result').classList.contains('active'));
-    if (!onResult) FAIL('하트를 다 잃었는데 결과 화면이 뜨지 않았다');
+    if (!onResult) FAIL('추락해 «결과 보기»를 했는데 결과 화면이 뜨지 않았다');
 
     await page.click('#screen-result [data-go="title"]');
     await page.waitForTimeout(120);

@@ -98,10 +98,25 @@ async function main() {
     await page.evaluate(() => { window.__SMOKE__.app.qaLog = []; });
   };
 
-  const waitQuestion = () => page.waitForFunction(
-    () => { const c = window.__SMOKE__.app.core; return c && c.phase === 'question' && !c.answered; },
-    null, { timeout: 8000 },
-  );
+  // v3(한 번 틀리면 추락): 시간초과 한 번에 판이 «추락(down)»·«끝(over)»으로 간다. 표본을 모으는 루프는
+  //    그때 판을 새로 열되, 지금까지 모은 입력 기록(qaLog)은 이어 붙인다(startRun 이 비우므로).
+  const restartKeepLog = async () => {
+    const keep = await page.evaluate(() => window.__SMOKE__.app.qaLog || []);
+    await startRun(0);
+    await page.evaluate((k) => { window.__SMOKE__.app.qaLog = k; }, keep);
+  };
+  const waitQuestion = async () => {
+    for (let tries = 0; tries < 4; tries++) {
+      await page.waitForFunction(
+        () => { const c = window.__SMOKE__.app.core; return c && ((c.phase === 'question' && !c.answered) || c.phase === 'down' || c.phase === 'over'); },
+        null, { timeout: 8000 },
+      );
+      const ph = await page.evaluate(() => window.__SMOKE__.app.core.phase);
+      if (ph === 'question') return;
+      await restartKeepLog();
+    }
+    throw new Error('문항이 다시 열리지 않는다');
+  };
 
   const state = () => page.evaluate(() => {
     const c = window.__SMOKE__.app.core;
@@ -125,7 +140,6 @@ async function main() {
     await page.keyboard.press(key);
     keyTrials += 1;
     await page.waitForTimeout(60);
-    if (still.hearts <= 1) { await startRun(0); }
   }
   const keyLog = await page.evaluate(() => window.__SMOKE__.app.qaLog.filter((r) => r.source === 'key'));
   NOTE(`끝단 키 입력 ${keyTrials}회 시도 · 기록 ${keyLog.length}건`);
@@ -151,7 +165,6 @@ async function main() {
     const afterHearts = (await state()).hearts;
     if (beforeHearts !== afterHearts) extraJudgements += 1;
     toTrials += 1;
-    if (afterHearts <= 0) await startRun(0);
   }
   NOTE(`타임아웃 이후 입력 ${toTrials}회 · 추가 판정 ${extraJudgements}건`);
   if (toTrials < MIN_N) FAIL(`타임아웃 이후 입력 표본 ${toTrials} < ${MIN_N} — 측정 무효`);
@@ -219,7 +232,6 @@ async function main() {
     await page.waitForTimeout(60);
     const after = await state();
     if (after.floor !== still.floor + 1) tapWrong.push({ want: still.floor + 1, got: after.floor });
-    if (after.hearts <= 1) await startRun(0);
   }
   const tapLog = await page.evaluate(() => window.__SMOKE__.app.qaLog.filter((r) => r.source === 'pointer'));
   NOTE(`포인터 탭 ${tapTrials}회 · 기록 ${tapLog.length}건`);
@@ -247,9 +259,19 @@ async function main() {
   await startRun(0);
   let clicks = 0;
   let runs = 1;
+  let revives = 0;
   let guard = 0;
   while (guard++ < 900) {
     const s = await state();
+    if (s.phase === 'down') {
+      // 추락 — 창이 뜨면 «사람처럼» 단추를 누른다. 판마다 처음 한 번은 다시 일어서기, 그다음은 결과 보기
+      const btn = (await page.evaluate(() => window.__SMOKE__.app.core.revivesLeft)) > 0 ? '#btn-revive' : '#btn-revive-no';
+      await page.waitForSelector('#overlay-revive:not([hidden])', { timeout: 5000 });
+      await page.click(btn);
+      if (btn === '#btn-revive') revives += 1;
+      await page.waitForTimeout(80);
+      continue;
+    }
     if (s.phase === 'over') {
       if (clicks >= NEED_CLICKS || runs >= 5) break;
       runs += 1;
@@ -284,7 +306,8 @@ async function main() {
   }));
   NOTE(`봇 플레이테스트 클릭 ${clicks}회 · 판 ${runs}회 · 결과화면 ${final.onResult} · 층 ${final.floor}`);
   if (clicks < NEED_CLICKS) FAIL(`봇이 판 ${runs}회 동안 ${clicks}회만 눌렀다 — 입력이 먹지 않는다(측정 무효)`);
-  if (!final.onResult) FAIL('봇이 하트를 다 잃었는데 결과 화면이 뜨지 않았다');
+  if (!final.onResult) FAIL('봇이 추락했는데 결과 화면이 뜨지 않았다');
+  NOTE(`다시 일어서기 단추 ${revives}회`);
   if (final.qa.zombieTweens > 0) FAIL(`파괴된 대상을 도는 트윈 ${final.qa.zombieTweens}개 — 생명주기 누수`);
   if (final.qa.loadErrors.length) FAIL(`에셋 로드 실패 ${final.qa.loadErrors.length}건: ${final.qa.loadErrors.join(', ')}`);
 

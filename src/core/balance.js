@@ -28,27 +28,50 @@ export function timerFor(floor) {
 //  · stamina 기력 게이지를 쓰는가
 //  · runMs   판 전체 제한시간(ms). 0 이면 무제한
 export const MODES = {
+  // 🔴 v3(2026-10-23 사용자 «목숨이 너무 많아 긴장감이 덜해 — 한 번 틀리면 떨어지니까 집중해야 하는 거 아니야?»):
+  //    하트 3개 → «한 번 틀리면 추락». 대신 판마다 딱 한 번 «다시 일어서기»(놓친 문제부터 3문제 연속 정답)가 있다.
+  //    부활을 «광고·보석»이 아니라 «틀린 문제를 다시 푸는 일»로 바꿨다 — 긴장은 그대로, 오답은 바로 복습된다.
+  //  · revive  추락했을 때 다시 일어서기를 줄 것인가(GameCore 의 revive 옵션이 켜진 판에서만)
+  //  · penaltyMs 오답이 판 시계에서 깎는 시간(60초 질주). 이 모드는 오답으로 끝나지 않는다.
+  //  · slide   오답이면 이만큼 층이 내려간다(0층 아래로는 안 간다)
   classic: {
-    label: '무한 오르기', hint: '하트 3개 · 문항마다 제한시간',
-    timed: true, hearts: 3, stamina: false, runMs: 0,
+    label: '무한 오르기', hint: '한 번 틀리면 추락 · 다시 일어서기 1번',
+    timed: true, hearts: 1, stamina: false, runMs: 0, revive: true,
   },
   thrill: {
-    label: '아슬아슬', hint: '기력이 계속 줄어든다 · 멈추면 떨어진다',
-    timed: false, hearts: 0, stamina: true, runMs: 0,
+    label: '아슬아슬', hint: '기력이 계속 줄어든다 · 틀려도 추락',
+    timed: false, hearts: 1, stamina: true, runMs: 0, revive: true,
   },
   sprint: {
-    label: '60초 질주', hint: '1분 안에 몇 층까지',
-    // 🔴 질주 모드의 하트는 5개다. 3개면 대부분 «시간이 아니라 하트»로 끝나 60초라는 이름이
-    //    거짓말이 된다(실측: p=0.5 에서 시간 종료 0%). 모드는 죽는 이유가 달라야 모드다.
-    timed: true, hearts: 5, stamina: false, runMs: 60000,
+    label: '60초 질주', hint: '1분 안에 몇 층까지 · 틀리면 한 칸 미끄러짐',
+    // 🔴 질주는 «시간»으로만 끝난다 — 오답은 목숨 대신 «한 칸 미끄러짐 + 2초»를 깎는다(죽는 이유가 달라야 모드다).
+    //    감점만 두면 찍기 봇이 60초 동안 10층을 올랐다(D-1 실측 · 3초 12층 · 5초 10층). 미끄러지면 2갈래 찍기의
+    //    기댓값이 «+1·−1 반반 = 0» 이 되어 시간을 아무리 줘도 찍어서는 못 오른다.
+    timed: true, hearts: 0, stamina: false, runMs: 60000, penaltyMs: 2000, slide: 1, revive: false,
   },
   // 거울 계단(v2) — 문제를 거꾸로 낸다: 구구단은 «56» 을 보고 «7 × 8» 발판을, 낱말은 뜻을 보고 낱말을 고른다.
   //    알아보기(recognition) 대신 «거꾸로 떠올리기»를 연습한다. 수치는 클래식과 같다 — 다른 것은 보기의 모양뿐.
   mirror: {
     label: '거울 계단', hint: '답을 보고 문제를 찾아요 · 56 → 7 × 8',
-    timed: true, hearts: 3, stamina: false, runMs: 0, mirror: true,
+    timed: true, hearts: 1, stamina: false, runMs: 0, mirror: true, revive: true,
   },
 };
+
+/** 다시 일어서기 — 판마다 REVIVE.COUNT 번. 첫 문제는 «방금 놓친 문제»다(정답을 막 봤으니 바로 꺼내 보는 연습). */
+export const REVIVE = {
+  COUNT: 1,
+  NEED: 3,          // 연속으로 맞혀야 하는 문제 수
+  TIMER_S: 5,       // 문제당 제한시간 — 기력·층 타이머와 무관하게 넉넉히
+  STEP_MS: 420,     // 한 문제 맞힌 뒤 다음 문제까지
+  STAMINA: 0.7,     // 일어선 뒤 기력(그 층 천장의 비율)
+};
+
+/** 불꽃 계단 — 연속 정답이 FROM 을 넘으면 발판이 불붙고 코인이 MULT 배. 한 번 틀리면 꺼진다. */
+export const FEVER = { FROM: 10, COIN_MULT: 2 };
+
+/** «간발» — 제한시간의 이 비율 넘어서 맞히면(또는 기력 위험 구간에서 맞히면) 아슬아슬 연출 */
+export const CLOSE_CALL = 0.75;
+
 export const DEFAULT_MODE = 'classic';
 
 /** 기력 게이지 — 0~1. 아슬아슬 모드의 «유일한» 생명선이다.
@@ -97,7 +120,7 @@ export function refillFor(elapsedMs, stamina = 1) {
 export const HEART = {
   START: 3,
   MAX: 3,
-  STREAK_HEAL: 10, // 스트릭 10마다 하트 +1 (최대치 초과분은 버림)
+  STREAK_HEAL: 10, // 스트릭 10마다 하트 +1 — 모드의 하트 수(rules.hearts)를 넘지 않는다(1개짜리 모드는 회복 없음)
 };
 
 // 2갈래는 찍어서 50% 다. 그 구간이 길면 «공부 안 해도 오르는» 구간이 길어진다.
@@ -197,8 +220,9 @@ export const ZONES = [
  *    별 문턱은 «오늘의 목표»에 비례해 정해지므로 목표가 쉬운 날도 어려운 날도 별의 뜻이 같다.
  */
 export const DAILY = {
-  GOAL_MIN: 30,
-  GOAL_MAX: 70,
+  // v3: 한 번 틀리면 추락이라 목표를 낮췄다(하트 3개 시절 30~70). 90% 아는 아이의 중앙값이 목표 근처에 오게.
+  GOAL_MIN: 15,
+  GOAL_MAX: 35,
   STAR2_RATIO: 0.5,     // 목표의 절반 = 별 1개
   ACC_STAR: 0.9,        // 정확도 90% = 별 3개째
   FLAG_KEEP: 60,        // 깃발 도감에 남기는 날 수(로컬 저장 상한)

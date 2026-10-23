@@ -131,7 +131,10 @@ async function run(device, label) {
   await page.click('#btn-how');
   s = await page.evaluate(state);
   if (!s.open) FAIL(`[${label}] «?» 버튼으로 안내를 다시 볼 수 없다`);
-  if (!/하트/.test(s.text)) FAIL(`[${label}] 클래식 안내에 «하트» 설명이 없다`);
+  // v3: 클래식은 «한 번 틀리면 추락» — 안내가 그걸 말하고, 다시 일어서기도 알려야 한다
+  if (!/떨어/.test(s.text)) FAIL(`[${label}] 클래식 안내에 «틀리면 떨어진다» 설명이 없다`);
+  if (!/다시 일어/.test(s.text)) FAIL(`[${label}] 클래식 안내에 «다시 일어서기» 설명이 없다`);
+  if (/하트/.test(s.text)) FAIL(`[${label}] 클래식 안내에 «하트»가 적혀 있다 — 하트는 이제 없다`);
   await page.click('#btn-how-start');
   s = await page.evaluate(state);
   if (s.open || s.paused) FAIL(`[${label}] «?» 로 열었다 닫은 뒤 판이 이어지지 않는다`);

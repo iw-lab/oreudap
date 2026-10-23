@@ -3,7 +3,7 @@
  * 모드별 난이도 격자 (D33). 코어를 직접 돌린다 — 곡선을 베끼면 검산이 아니라 두 번째 구현이다.
  *
  * 🔴 모드는 «더 어려운 클래식»이면 안 된다. 서로 다른 이유로 죽어야 모드다:
- *    클래식 = 하트 소진 / 아슬아슬 = 기력 고갈 / 60초 질주 = 시간 종료.
+ *    클래식 = 오답 한 번(문항 시계) / 아슬아슬 = 오답 또는 기력 고갈 / 60초 질주 = 시간 종료(오답은 감점).
  *    이 게이트는 그 «사인»의 분포까지 본다 — 아슬아슬에서 대부분 오답으로 끝나면
  *    기력 게이지는 장식이라는 뜻이다.
  *
@@ -26,13 +26,15 @@ const MAX_MS = 20 * 60 * 1000;
 const gauss = (rng) => Math.sqrt(-2 * Math.log(1 - rng())) * Math.cos(2 * Math.PI * rng());
 
 function runBot({ p, seed, mode, mu = MU, sd = SD }) {
-  const core = new GameCore({ seed, subject: SUBJECT, mode, notes: new PersistentNotes(), now: () => 1_700_000_000_000 });
+  const core = new GameCore({ seed, subject: SUBJECT, mode, notes: new PersistentNotes(), now: () => 1_700_000_000_000, revive: true });
   const botRng = makeRng(seed * 2654435761 + 12345);
   core.start();
   let pending = null;
   let guard = 0;
   let lowMs = 0;      // 기력이 «위험 구간»에 머문 시간 — 아슬아슬함의 실측치
   while (core.phase !== PHASE.OVER && core.t < MAX_MS && guard++ < 400000) {
+    // v3: 실제 판처럼 «다시 일어서기»를 받는다(판마다 1번 · 놓친 문제부터 3연속)
+    if (core.phase === PHASE.DOWN) { core.beginRevive(); pending = null; }
     if (core.phase === PHASE.QUESTION && !core.answered && !pending) {
       const q = core.question;
       const k = q.choices.length;
@@ -72,10 +74,13 @@ for (const mode of Object.keys(MODES)) {
 
 if (GATE) {
   // ① 모드마다 «죽는 이유»가 달라야 모드다
-  const thrill = table.thrill[0.9].causes;
-  const staminaShare = (thrill.stamina || 0) / N;
-  // 임계 55%: 실측 63%(N=150) 에서 잡은 값이다. 60% 로 두면 표본 잡음만으로 빨간불이 켜진다.
-  if (staminaShare < 0.55) fails.push(`아슬아슬에서 기력 고갈로 끝난 판이 ${(staminaShare * 100).toFixed(0)}% — 55% 미만이면 게이지가 장식이다`);
+  // 🔴 v3: 모든 모드가 «한 번 틀리면 추락»이라 오답은 어느 모드에서나 판을 끝낸다. 그래서 게이지의 몫은
+  //    «틀리지 않는 아이»를 끝내는 것이다 — 다 아는 봇(p=1)은 거의 전부 기력으로 끝나야 하고,
+  //    잘하는 봇(p=0.9)에게도 기력 고갈이 실제로 일어나야 게이지가 장식이 아니다.
+  const perfect = (table.thrill[1].causes.stamina || 0) / N;
+  if (perfect < 0.9) fails.push(`아슬아슬: 다 아는 봇이 기력으로 끝난 판이 ${(perfect * 100).toFixed(0)}% — 90% 미만이면 게이지가 끝을 못 낸다`);
+  const staminaShare = (table.thrill[0.9].causes.stamina || 0) / N;
+  if (staminaShare < 0.1) fails.push(`아슬아슬: 잘하는 봇(p=0.9)이 기력으로 끝난 판이 ${(staminaShare * 100).toFixed(0)}% — 10% 미만이면 게이지가 장식이다`);
   const sprintTime = (table.sprint[0.9].causes.time || 0) / N;
   if (sprintTime < 0.6) fails.push(`60초 질주에서 시간 종료로 끝난 판이 ${(sprintTime * 100).toFixed(0)}% — 60% 미만이면 1분을 버티지 못한다는 뜻이다`);
   const classicWrong = (table.classic[0.9].causes.wrong || 0) / N;

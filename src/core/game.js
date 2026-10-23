@@ -4,6 +4,7 @@
 import {
   HEART, TIMING, COIN, timerFor, branchesFor,
   MODES, DEFAULT_MODE, STAMINA, drainFor, refillFor, capFor,
+  REVIVE, FEVER, CLOSE_CALL,
 } from './balance.js';
 import { makeRng } from './rng.js';
 import { QuestionSource } from './questions.js';
@@ -13,6 +14,7 @@ export const PHASE = {
   IDLE: 'idle',
   QUESTION: 'question',
   RESOLVE: 'resolve',
+  DOWN: 'down',       // 추락 — «다시 일어서기»를 고를 때까지 시간이 멈춘다(beginRevive / giveUp)
   OVER: 'over',
 };
 
@@ -25,8 +27,10 @@ export class GameCore {
    * @param {PersistentNotes} [o.notes]
    * @param {string} [o.mode] 'classic' | 'thrill' | 'sprint'
    * @param {() => number} [o.now] 벽시계(영속 SRS 가중·박스 날짜에만)
+   * @param {boolean} [o.revive] 추락 때 «다시 일어서기»를 줄 것인가. 실제 판(App)만 켠다 —
+   *        끄면 추락이 곧 gameover 다(옛 프로브·스모크가 그대로 돈다).
    */
-  constructor({ seed, subject, scope, notes, mode = DEFAULT_MODE, now = () => Date.now() }) {
+  constructor({ seed, subject, scope, notes, mode = DEFAULT_MODE, now = () => Date.now(), revive = false }) {
     this.seed = seed >>> 0;
     this.subject = subject;
     this.mode = MODES[mode] ? mode : DEFAULT_MODE;
@@ -57,6 +61,10 @@ export class GameCore {
     this.resolveUntil = 0;
     this.pendingOver = false;
     this.lastResult = null;
+    this.revivesLeft = revive && this.rules.revive ? REVIVE.COUNT : 0;
+    this.reviving = null;     // { need, got } — 다시 일어서기 도중
+    this.lastWrongId = null;
+    this.downCause = null;
 
     this.stats = {
       asked: 0, correct: 0, wrong: 0, timeouts: 0,
@@ -95,6 +103,11 @@ export class GameCore {
     return this.timerMs > 0 ? this.timeLeftMs / this.timerMs : 0;
   }
 
+  /** 불꽃 계단 — 연속 정답이 FEVER.FROM 이상 */
+  get fever() {
+    return this.streak >= FEVER.FROM;
+  }
+
   get accuracy() {
     return this.stats.asked > 0 ? this.stats.correct / this.stats.asked : 0;
   }
@@ -120,7 +133,8 @@ export class GameCore {
 
     // 🔴 기력은 «국면과 무관하게» 흐른다 — 정답 연출 중에도 줄어야 「멈추면 떨어진다」가 된다.
     //    다만 이미 끝난 판에서는 더 줄이지 않는다(결과 화면에서 계속 깎이면 값이 거짓이 된다).
-    if (this.stamina != null && this.phase !== PHASE.OVER) {
+    //    다시 일어서기 도중·추락해 고르는 중에는 멈춘다(그 시간은 «문제 푸는 시간»이 아니다).
+    if (this.stamina != null && this.phase !== PHASE.OVER && this.phase !== PHASE.DOWN && !this.reviving) {
       this.stamina = Math.max(0, this.stamina - drainFor(this.floor + 1) * (dtMs / 1000));
       if (this.stamina <= 0 && !this.pendingOver) {
         events.push(this._fall('stamina'));
@@ -143,11 +157,7 @@ export class GameCore {
       }
       if (this.phase === PHASE.RESOLVE && this.t >= this.resolveUntil) {
         if (this.pendingOver) {
-          this.phase = PHASE.OVER;
-          events.push({
-            type: 'gameover', floor: this.floor, stats: this.stats,
-            bestStreak: this.bestStreak, coins: this.coins,
-          });
+          events.push(this._down('wrong'));
           break;
         }
         events.push(...this._nextQuestion());
@@ -158,14 +168,15 @@ export class GameCore {
     return events;
   }
 
-  _nextQuestion() {
+  _nextQuestion(forceId = null) {
     const events = [];
     const branches = branchesFor(this.floor + 1, this.rng);
-    this.question = this.source.next(branches, this.floor + 1);
+    this.question = this.source.next(branches, this.floor + 1, forceId);
     this.activeAt = this.t;
     // 🔴 timerMs 0 = «시간 제한 없음». Infinity 를 넣으면 timeRatio 가 NaN 이 되어
     //    HUD 바가 조용히 사라진다 — 0 은 계산에서 안전하게 죽는다.
-    this.timerMs = this.rules.timed ? timerFor(this.floor + 1) * 1000 : 0;
+    //    다시 일어서기 문제는 모드와 무관하게 넉넉한 고정 시간이다.
+    this.timerMs = this.reviving ? REVIVE.TIMER_S * 1000 : this.rules.timed ? timerFor(this.floor + 1) * 1000 : 0;
     this.answered = false;
     this.phase = PHASE.QUESTION;
     this.stats.asked += 1;
@@ -182,9 +193,13 @@ export class GameCore {
 
   _resolveCorrect() {
     const q = this.question;
+    if (this.reviving) return this._reviveCorrect(q);
+    const elapsedMs = this.t - this.activeAt;
+    const close = this.timerMs > 0 ? elapsedMs >= this.timerMs * CLOSE_CALL : this.lowStamina;
     this.floor += 1;
-    this.coins += COIN.PER_FLOOR;
     this.streak += 1;
+    const fever = this.fever;
+    this.coins += COIN.PER_FLOOR * (fever ? FEVER.COIN_MULT : 1);
     if (this.streak > this.bestStreak) this.bestStreak = this.streak;
     this.stats.correct += 1;
     this._track(q.id, true);
@@ -199,7 +214,8 @@ export class GameCore {
     if (this.streak % HEART.STREAK_HEAL === 0) {
       bonus = COIN.STREAK_BONUS;
       this.coins += bonus;
-      if (this.hearts < HEART.MAX) { this.hearts += 1; healed = true; }
+      // 회복 상한은 «그 모드의 하트 수» — 하트 1개 모드에서 2개가 되면 «한 번 틀리면 추락»이 거짓말이 된다.
+      if (this.rules.hearts > 0 && this.hearts < Math.min(HEART.MAX, this.rules.hearts)) { this.hearts += 1; healed = true; }
     }
     const graduated = this.sessionQueue.has(q.id)
       ? this.sessionQueue.onCorrect(q.id, this.source.index)
@@ -212,15 +228,94 @@ export class GameCore {
     this.lastResult = {
       type: 'correct', floor: this.floor, healed, bonus, graduated, boxState,
       box: this.notes.box(q.id), id: q.id,
+      fever, feverStart: this.streak === FEVER.FROM, close,
     };
     return this.lastResult;
+  }
+
+  /** 다시 일어서기 도중의 정답 — 층은 그대로, 맞힌 수만 센다. 다 맞히면 그 자리에서 다시 출발 */
+  _reviveCorrect(q) {
+    const r = this.reviving;
+    r.got += 1;
+    this.stats.correct += 1;
+    this._track(q.id, true);
+    if (q.fromReview) this.stats.reviewCorrect += 1;
+    if (this.sessionQueue.has(q.id)) this.sessionQueue.onCorrect(q.id, this.source.index);
+    this.notes.onCorrect(q.id, this.nowFn());
+    const done = r.got >= r.need;
+    if (done) {
+      this.reviving = null;
+      this.hearts = this.rules.hearts || HEART.START;
+      if (this.stamina != null) this.stamina = Math.max(this.stamina, capFor(this.floor) * REVIVE.STAMINA);
+    }
+    this.phase = PHASE.RESOLVE;
+    this.resolveUntil = this.t + REVIVE.STEP_MS;
+    this.lastResult = {
+      type: 'correct', floor: this.floor, id: q.id,
+      revive: { got: r.got, need: r.need, done },
+    };
+    return this.lastResult;
+  }
+
+  /**
+   * 추락. 다시 일어서기가 남았으면 DOWN 에서 기다리고(시간 정지), 아니면 그대로 끝난다.
+   * @param {'wrong'|'stamina'|'time'} cause
+   */
+  _down(cause) {
+    this.pendingOver = false;
+    this.answered = true;
+    if (cause !== 'time' && this.revivesLeft > 0) {
+      this.phase = PHASE.DOWN;
+      this.downCause = cause;
+      return { type: 'down', cause, floor: this.floor, revivesLeft: this.revivesLeft, need: REVIVE.NEED };
+    }
+    this.phase = PHASE.OVER;
+    if (cause !== 'wrong') this.lastResult = { type: 'fall', cause, floor: this.floor };
+    return {
+      type: 'gameover', cause, floor: this.floor, stats: this.stats,
+      bestStreak: this.bestStreak, coins: this.coins,
+    };
+  }
+
+  /** 추락한 자리에서 다시 일어서기 시작 — 첫 문제는 방금 놓친 문제. 이벤트 배열을 돌려준다 */
+  beginRevive() {
+    if (this.phase !== PHASE.DOWN || this.revivesLeft <= 0) return [];
+    this.revivesLeft -= 1;
+    this.reviving = { need: REVIVE.NEED, got: 0 };
+    this.streak = 0;
+    return this._nextQuestion(this.lastWrongId);
+  }
+
+  /** 다시 일어서기를 안 하고 끝낸다 */
+  giveUp() {
+    if (this.phase !== PHASE.DOWN) return [];
+    this.revivesLeft = 0;
+    return [this._down(this.downCause || 'wrong')];
   }
 
   _resolveWrong(choiceIndex, isTimeout) {
     const q = this.question;
     this.answered = true;
-    if (this.rules.hearts > 0) this.hearts -= 1;
-    if (this.stamina != null) this.stamina = Math.max(0, this.stamina - STAMINA.WRONG);
+    const wasReviving = !!this.reviving;
+    let penaltyMs = 0;
+    let slid = 0;
+    if (wasReviving) {
+      // 다시 일어서기에서 틀리면 끝 — 남은 기회도 없다
+      this.reviving = null;
+      this.revivesLeft = 0;
+    } else {
+      if (this.rules.hearts > 0) this.hearts -= 1;
+      if (this.stamina != null) this.stamina = Math.max(0, this.stamina - STAMINA.WRONG);
+      if (this.rules.penaltyMs && this.runEndsAt > 0) {
+        penaltyMs = Math.min(this.rules.penaltyMs, Math.max(0, this.runEndsAt - this.t));
+        this.runEndsAt -= penaltyMs;
+      }
+      if (this.rules.slide) {
+        slid = Math.min(this.rules.slide, this.floor);
+        this.floor -= slid;
+      }
+    }
+    this.lastWrongId = q.id;
     this.streak = 0;
     this.stats.wrong += 1;
     if (isTimeout) this.stats.timeouts += 1;
@@ -231,9 +326,13 @@ export class GameCore {
     this.notes.onWrong(q.id, this.nowFn());
 
     this.phase = PHASE.RESOLVE;
-    // 하트가 0이면 하이라이트만 보여 주고 결과 화면으로 간다 — 자동 이동·다음 문항 없음.
-    // 하트 모드는 하트가 0 일 때, 기력 모드는 기력이 0 일 때 끝난다.
-    this.pendingOver = this.rules.hearts > 0 ? this.hearts <= 0 : this.stamina <= 0;
+    // 하트가 0이면 하이라이트만 보여 주고 추락한다 — 자동 이동·다음 문항 없음.
+    // 하트 모드는 하트가 0 일 때, 기력만 쓰는 모드는 기력이 0 일 때, 감점 모드(질주)는 오답으로 끝나지 않는다.
+    // 🔴 stamina 가 null 인 모드에서 `null <= 0` 은 true 다 — 기력 모드인지 먼저 묻는다.
+    this.pendingOver = wasReviving ? true
+      : this.rules.hearts > 0 ? this.hearts <= 0
+        : this.stamina != null ? this.stamina <= 0
+          : false;
     this.resolveUntil = this.t + TIMING.STUMBLE_MS + TIMING.HIGHLIGHT_MS;
     this.lastResult = {
       type: isTimeout ? 'timeout' : 'wrong',
@@ -245,6 +344,9 @@ export class GameCore {
       box: this.notes.box(q.id),
       id: q.id,
       over: this.pendingOver,
+      penaltyMs,
+      slid,
+      reviveFailed: wasReviving,
     };
     return this.lastResult;
   }
@@ -255,14 +357,7 @@ export class GameCore {
    * @param {'stamina'|'time'} cause
    */
   _fall(cause) {
-    this.phase = PHASE.OVER;
-    this.pendingOver = false;
-    this.answered = true;
-    this.lastResult = { type: 'fall', cause, floor: this.floor };
-    return {
-      type: 'gameover', cause, floor: this.floor, stats: this.stats,
-      bestStreak: this.bestStreak, coins: this.coins,
-    };
+    return this._down(cause);
   }
 
   _track(id, ok) {
@@ -280,6 +375,8 @@ export class GameCore {
       hearts: this.hearts,
       stamina: this.stamina,
       staminaCap: this.staminaCap,
+      revivesLeft: this.revivesLeft,
+      reviving: this.reviving ? { ...this.reviving } : null,
       mode: this.mode,
       runLeftMs: this.runLeftMs,
       streak: this.streak,

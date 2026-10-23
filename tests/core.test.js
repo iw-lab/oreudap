@@ -7,7 +7,7 @@ import { PersistentNotes, SessionQueue, dayKey } from '../src/core/srs.js';
 import { PositionDeck, hasRun } from '../src/core/positionDeck.js';
 import { gugudanDistractors, gugudanCandidates, wordDistractors } from '../src/core/distractors.js';
 import { buildBank, QuestionSource } from '../src/core/questions.js';
-import { timerFor, branchesFor, TIMING, HEART, COIN, SRS, SAVE, TIMER, BRANCH, MODES, STAMINA, drainFor, refillFor, capFor } from '../src/core/balance.js';
+import { timerFor, branchesFor, TIMING, HEART, COIN, SRS, SAVE, TIMER, BRANCH, MODES, STAMINA, drainFor, refillFor, capFor, REVIVE, FEVER } from '../src/core/balance.js';
 import { makeRng } from '../src/core/rng.js';
 import { load, save, migrate, emptySave, sanitize } from '../src/core/storage.js';
 import { applyRun, buy, equip, todayMissions } from '../src/core/economy.js';
@@ -37,14 +37,21 @@ function answerWrong(g) {
   g.advance(TIMING.STUMBLE_MS + TIMING.HIGHLIGHT_MS + 1);
 }
 
-describe('정답이 층을 올리고 오답이 하트를 깎는다 [D2]', () => {
+describe('정답이 층을 올리고 오답 한 번이면 추락한다 [D2]', () => {
   it('정답 1회 = 층 +1, 코인 +1', () => {
     const g = newGame();
     expect(g.floor).toBe(0);
     answerCorrect(g);
     expect(g.floor).toBe(1);
     expect(g.coins).toBe(COIN.PER_FLOOR);
-    expect(g.hearts).toBe(HEART.START);
+    expect(g.hearts).toBe(MODES.classic.hearts);
+  });
+
+  it('하트로 버티는 모드가 없다 — 질주 말고는 전부 «한 번 틀리면 추락»', () => {
+    for (const [id, m] of Object.entries(MODES)) {
+      if (m.penaltyMs) { expect(m.hearts, id).toBe(0); continue; }
+      expect(m.hearts, id).toBe(1);
+    }
   });
 
   it('오답 = 층 그대로, 하트 −1, 정답 하이라이트 정보 제공', () => {
@@ -55,32 +62,32 @@ describe('정답이 층을 올리고 오답이 하트를 깎는다 [D2]', () => 
     const res = g.input(wrong);
     expect(res.type).toBe('wrong');
     expect(res.answerText).toBe(answerText);
+    expect(res.over).toBe(true);
     expect(g.floor).toBe(0);
-    expect(g.hearts).toBe(HEART.START - 1);
+    expect(g.hearts).toBe(0);
   });
 
   it('시간초과 = 오답과 같은 처리', () => {
     const g = newGame();
     g.advance(g.timerMs + 1);
-    expect(g.hearts).toBe(HEART.START - 1);
+    expect(g.hearts).toBe(0);
     expect(g.stats.timeouts).toBe(1);
     expect(g.floor).toBe(0);
   });
 
-  it('스트릭 10의 배수에서만 코인 +5', () => {
+  it('스트릭 10의 배수에서만 코인 +5 (10연속부터는 불꽃 계단 코인 배수)', () => {
     const g = newGame();
     for (let i = 0; i < 9; i++) answerCorrect(g);
     expect(g.coins).toBe(9);
-    answerCorrect(g); // 10번째
-    expect(g.coins).toBe(10 + COIN.STREAK_BONUS);
+    answerCorrect(g); // 10번째 = 불꽃 시작
+    expect(g.coins).toBe(9 + COIN.PER_FLOOR * FEVER.COIN_MULT + COIN.STREAK_BONUS);
   });
 
-  it('하트 0 이 된 오답 뒤에는 다음 문항이 생성되지 않는다', () => {
+  it('오답 한 번 뒤에는 다음 문항이 생성되지 않는다', () => {
     const g = newGame();
-    answerWrong(g); answerWrong(g);
+    answerCorrect(g);
     const askedBefore = g.stats.asked;
-    answerWrong(g); // 하트 0
-    expect(g.hearts).toBe(0);
+    answerWrong(g);
     g.advance(5000);
     expect(g.phase).toBe(PHASE.OVER);
     expect(g.stats.asked).toBe(askedBefore);
@@ -94,7 +101,7 @@ describe('문항당 판정은 정확히 1회 [D3]', () => {
     const idx = g.question.answerIndex;
     g.input(idx); g.input(idx); g.input((idx + 1) % g.question.choices.length);
     expect(g.floor).toBe(1);
-    expect(g.hearts).toBe(HEART.START);
+    expect(g.hearts).toBe(MODES.classic.hearts);
     expect(g.stats.correct).toBe(1);
     expect(g.stats.wrong).toBe(0);
   });
@@ -111,18 +118,139 @@ describe('문항당 판정은 정확히 1회 [D3]', () => {
   });
 });
 
-describe('스트릭 10마다 하트 회복 [D5]', () => {
-  it('하트가 줄어 있으면 스트릭 10에서 +1', () => {
+describe('하트는 모드의 개수를 넘지 않는다 [D5]', () => {
+  it('하트 1개 모드는 스트릭으로 하트가 늘지 않는다 — 늘면 «한 번 틀리면 추락»이 거짓말', () => {
     const g = newGame();
-    answerWrong(g);
-    expect(g.hearts).toBe(2);
-    for (let i = 0; i < 10; i++) answerCorrect(g);
-    expect(g.hearts).toBe(3);
+    for (let i = 0; i < 30; i++) answerCorrect(g);
+    expect(g.hearts).toBe(MODES.classic.hearts);
+    expect(HEART.MAX).toBeGreaterThanOrEqual(MODES.classic.hearts);
   });
-  it('최대치를 넘지 않는다', () => {
+});
+
+describe('불꽃 계단 [D58]', () => {
+  it('연속 정답이 FROM 에 닿는 순간 켜지고(feverStart) 틀리면 꺼진다', () => {
+    const g = new GameCore({ seed: 7, subject: 'gugudan', notes: new PersistentNotes(), now: NOW, revive: true });
+    g.start();
+    let res = null;
+    for (let i = 0; i < FEVER.FROM; i++) {
+      g.advance(50); res = g.input(g.question.answerIndex);
+      if (i < FEVER.FROM - 1) expect(res.fever).toBe(false);
+      g.advance(TIMING.JUMP_MS + 1);
+    }
+    expect(res.fever).toBe(true);
+    expect(res.feverStart).toBe(true);
+    expect(g.fever).toBe(true);
+    answerWrong(g);
+    expect(g.fever).toBe(false);
+  });
+  it('제한시간 끝자락에 맞히면 «간발»(close) 표시', () => {
     const g = newGame();
-    for (let i = 0; i < 20; i++) answerCorrect(g);
-    expect(g.hearts).toBe(HEART.MAX);
+    g.advance(g.timerMs * 0.9);
+    const res = g.input(g.question.answerIndex);
+    expect(res.close).toBe(true);
+    const h = newGame(8);
+    h.advance(50);
+    expect(h.input(h.question.answerIndex).close).toBe(false);
+  });
+});
+
+describe('다시 일어서기 [D57]', () => {
+  const mkR = (mode = 'classic', seed = 7) => {
+    const g = new GameCore({ seed, subject: 'gugudan', mode, notes: new PersistentNotes(), now: NOW, revive: true });
+    g.start();
+    return g;
+  };
+  const fallOnce = (g) => {
+    g.advance(50);
+    const id = g.question.id;
+    g.input((g.question.answerIndex + 1) % g.question.choices.length);
+    const ev = g.advance(TIMING.STUMBLE_MS + TIMING.HIGHLIGHT_MS + 1);
+    return { id, ev };
+  };
+
+  it('추락하면 DOWN 에서 멈추고(시간 정지) 다시 일어서기를 기다린다', () => {
+    const g = mkR();
+    answerCorrect(g); answerCorrect(g);
+    const { ev } = fallOnce(g);
+    expect(ev.some((e) => e.type === 'down' && e.need === REVIVE.NEED)).toBe(true);
+    expect(g.phase).toBe(PHASE.DOWN);
+    const t = g.t;
+    expect(g.advance(60_000)).toEqual([]);
+    expect(g.phase).toBe(PHASE.DOWN);
+    expect(g.t).toBe(t + 60_000);
+  });
+
+  it('첫 문제는 방금 놓친 문제, 3연속 정답이면 «같은 층»에서 다시 출발', () => {
+    const g = mkR();
+    answerCorrect(g); answerCorrect(g);
+    const { id } = fallOnce(g);
+    const floor = g.floor;
+    g.beginRevive();
+    expect(g.question.id).toBe(id);
+    expect(g.timerMs).toBe(REVIVE.TIMER_S * 1000);
+    for (let i = 0; i < REVIVE.NEED; i++) {
+      g.advance(50);
+      const r = g.input(g.question.answerIndex);
+      expect(r.revive.got).toBe(i + 1);
+      expect(r.revive.done).toBe(i === REVIVE.NEED - 1);
+      expect(g.floor).toBe(floor);          // 다시 일어서는 동안은 층이 오르지 않는다
+      g.advance(REVIVE.STEP_MS + 1);
+    }
+    expect(g.phase).toBe(PHASE.QUESTION);
+    expect(g.reviving).toBe(null);
+    expect(g.hearts).toBe(MODES.classic.hearts);
+    answerCorrect(g);
+    expect(g.floor).toBe(floor + 1);
+  });
+
+  it('판마다 한 번뿐 — 두 번째 추락은 그대로 끝', () => {
+    const g = mkR();
+    fallOnce(g);
+    g.beginRevive();
+    for (let i = 0; i < REVIVE.NEED; i++) { g.advance(50); g.input(g.question.answerIndex); g.advance(REVIVE.STEP_MS + 1); }
+    const { ev } = fallOnce(g);
+    expect(ev.some((e) => e.type === 'gameover')).toBe(true);
+    expect(g.phase).toBe(PHASE.OVER);
+  });
+
+  it('다시 일어서기 도중 틀리면 끝', () => {
+    const g = mkR();
+    fallOnce(g);
+    g.beginRevive();
+    const { ev } = fallOnce(g);
+    expect(ev.some((e) => e.type === 'gameover')).toBe(true);
+  });
+
+  it('그만하기(giveUp) = 바로 끝', () => {
+    const g = mkR();
+    fallOnce(g);
+    const ev = g.giveUp();
+    expect(ev[0].type).toBe('gameover');
+    expect(g.phase).toBe(PHASE.OVER);
+  });
+
+  it('아슬아슬의 기력 고갈도 다시 일어서기가 있고, 일어서면 기력이 채워진다', () => {
+    const g = mkR('thrill');
+    g.stamina = 0.0001;
+    const ev = g.advance(50);
+    expect(ev.some((e) => e.type === 'down' && e.cause === 'stamina')).toBe(true);
+    g.beginRevive();
+    const s0 = g.stamina;
+    g.advance(3000);
+    expect(g.stamina).toBe(s0);               // 다시 일어서는 동안 기력이 줄지 않는다
+    for (let i = 0; i < REVIVE.NEED; i++) { g.advance(50); g.input(g.question.answerIndex); g.advance(REVIVE.STEP_MS + 1); }
+    expect(g.stamina).toBeGreaterThan(0.5);
+  });
+
+  it('revive 옵션이 꺼진 코어(프로브·스모크)는 추락이 곧 끝이다', () => {
+    const g = newGame();
+    const { ev } = fallOnce(g);
+    expect(ev.some((e) => e.type === 'gameover')).toBe(true);
+  });
+
+  it('60초 질주에는 다시 일어서기가 없다', () => {
+    const g = mkR('sprint');
+    expect(g.revivesLeft).toBe(0);
   });
 });
 
@@ -434,11 +562,12 @@ describe('입력은 문항이 살아 있을 때만 판정된다 [D13]', () => {
   it('타임아웃 이후의 입력은 무시된다 — 하트는 타임아웃분 1만 깎인다', () => {
     const g = newGame();
     g.advance(g.timerMs + 1);
-    expect(g.hearts).toBe(2);
+    expect(g.hearts).toBe(0);
     expect(g.input(0).type).toBe('ignored');
+    expect(g.stats.wrong).toBe(1);
     g.advance(TIMING.STUMBLE_MS + TIMING.HIGHLIGHT_MS + 1);
-    expect(g.hearts).toBe(2);
-    expect(g.answered).toBe(false);
+    expect(g.hearts).toBe(0);
+    expect(g.phase).toBe(PHASE.OVER);
   });
 });
 
@@ -645,13 +774,41 @@ describe('모드', () => {
     expect(refillFor(0, 0.1)).toBeGreaterThan(refillFor(0, 1));
   });
 
-  it('아슬아슬 모드는 하트를 깎지 않는다 — 생명선은 게이지 하나다', () => {
+  it('아슬아슬도 틀리면 추락한다 — 기력은 «실수 없는 아이»를 끝내는 시계다', () => {
     const c = mk('thrill');
     c.start();
-    const h = c.hearts;
-    c.input((c.question.answerIndex + 1) % c.question.choices.length);
-    expect(c.hearts).toBe(h);
+    const r = c.input((c.question.answerIndex + 1) % c.question.choices.length);
+    expect(r.over).toBe(true);
     expect(c.stamina).toBeLessThan(STAMINA.START);
+  });
+
+  it('60초 질주는 오답이면 한 칸 미끄러진다(0층 아래로는 안 간다)', () => {
+    const c = mk('sprint');
+    c.start();
+    c.advance(50);
+    c.input(c.question.answerIndex);
+    c.advance(TIMING.JUMP_MS + 1);
+    expect(c.floor).toBe(1);
+    const r = c.input((c.question.answerIndex + 1) % c.question.choices.length);
+    expect(r.slid).toBe(MODES.sprint.slide);
+    expect(c.floor).toBe(0);
+    c.advance(TIMING.STUMBLE_MS + TIMING.HIGHLIGHT_MS + 1);
+    const r2 = c.input((c.question.answerIndex + 1) % c.question.choices.length);
+    expect(r2.slid).toBe(0);
+    expect(c.floor).toBe(0);
+  });
+
+  it('60초 질주는 오답으로 끝나지 않고 판 시계가 깎인다', () => {
+    const c = mk('sprint');
+    c.start();
+    c.advance(50);
+    const before = c.runLeftMs;
+    const r = c.input((c.question.answerIndex + 1) % c.question.choices.length);
+    expect(r.over).toBe(false);
+    expect(r.penaltyMs).toBe(MODES.sprint.penaltyMs);
+    expect(c.runLeftMs).toBe(before - MODES.sprint.penaltyMs);
+    c.advance(TIMING.STUMBLE_MS + TIMING.HIGHLIGHT_MS + 1);
+    expect(c.phase).toBe(PHASE.QUESTION);
   });
 
   it('60초 질주는 시간이 다 되면 끝난다', () => {

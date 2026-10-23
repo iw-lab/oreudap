@@ -102,6 +102,7 @@
     <div id="choices" class="choices"></div>
     <div class="feedback" id="feedback" aria-live="assertive"></div>
     <div class="streak-chip" id="streak-chip" hidden></div>
+    <div class="revive-chip" id="revive-chip" hidden aria-live="polite"></div>
     <div class="run-clock" id="run-clock" hidden></div>
     <!-- PC 전용 옆 패널(≥1024px) — 가운데 판은 그대로 두고 빈 양옆에 «지금 무엇을·어디까지»를 보여 준다. 누르는 것 없음 -->
     <aside class="play-side left" aria-hidden="true">
@@ -184,6 +185,17 @@
       </ol>
       <p class="how-tip" id="how-tip"></p>
       <button class="primary-btn" id="btn-how-start" type="button">알겠어요, 시작!</button>
+    </div>
+  </div>
+
+  <!-- 추락 — 판마다 한 번 «다시 일어서기»(놓친 문제부터 3문제 연속 정답). 고르는 동안 시간은 멈춘다 -->
+  <div id="overlay-revive" class="overlay revive-overlay" hidden>
+    <div class="overlay-card revive-card">
+      <h2>떨어졌어요!</h2>
+      <p class="revive-lead">방금 놓친 문제부터 <b id="revive-need">3</b>문제를 <b>연달아</b> 맞히면<br>그 자리에서 다시 올라가요. 딱 한 번!</p>
+      <p class="revive-floor"><b id="revive-floor">0</b>층에서 떨어짐</p>
+      <button class="primary-btn" id="btn-revive" type="button">다시 일어서기</button>
+      <button class="ghost-btn" id="btn-revive-no" type="button">결과 보기</button>
     </div>
   </div>
 

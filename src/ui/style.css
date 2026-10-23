@@ -619,3 +619,24 @@ html:root {
 @media (prefers-reduced-motion:reduce){.gbj-pop,.gbj-banner.gbj-go,.gbj-punch{animation-duration:.01s}}
 
 :root { --gbj-banner-top: 20%; }
+
+
+/* ── v3 다시 일어서기 · 불꽃 계단 ─────────────────────────── */
+.revive-card h2 { margin: 0; font-size: 26px; color: #ffb3b3; }
+.revive-lead { margin: 4px 0 0; text-align: center; line-height: 1.55; font-size: 16px; }
+.revive-lead b { color: var(--accent); }
+.revive-floor { margin: 2px 0 6px; color: var(--ink-dim); font-size: 14px; }
+.revive-floor b { color: var(--ink); font-size: 18px; }
+.revive-chip {
+  position: absolute; left: 50%; transform: translateX(-50%); bottom: 15vh;
+  background: #ffe9a8; color: #3a2400; font-weight: 800; font-size: 17px;
+  padding: 8px 18px; border-radius: 999px; pointer-events: none;
+  box-shadow: 0 6px 18px rgba(0,0,0,.35);
+}
+.revive-chip[hidden] { display: none; }
+.streak-chip.is-fever {
+  background: linear-gradient(90deg, #ff8a3d, #ffcf4a); color: #3a1600;
+  box-shadow: 0 0 18px rgba(255, 160, 60, .75);
+  animation: fever-glow .9s ease-in-out infinite alternate;
+}
+@keyframes fever-glow { from { box-shadow: 0 0 10px rgba(255,160,60,.5); } to { box-shadow: 0 0 26px rgba(255,190,80,.95); } }

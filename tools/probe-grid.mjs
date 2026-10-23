@@ -37,7 +37,7 @@ function gauss(rng) {
  * @param {'know'|'mash'|'history'} [o.policy]
  */
 function runBot({ p, seed, policy = 'know', mu = MU, sd = SD, mode = MODE }) {
-  const core = new GameCore({ seed, subject: SUBJECT, mode, notes: new PersistentNotes(), now: () => 1_700_000_000_000 });
+  const core = new GameCore({ seed, subject: SUBJECT, mode, notes: new PersistentNotes(), now: () => 1_700_000_000_000, revive: true });
   const botRng = makeRng(seed * 2654435761 + 12345); // 봇 결정 전용(세계 RNG 와 분리)
   core.start();
 
@@ -49,6 +49,8 @@ function runBot({ p, seed, policy = 'know', mu = MU, sd = SD, mode = MODE }) {
   //    문항 국면에서만 누르면 버퍼를 한 번도 안 지나가고 게이트가 초록으로 거짓말한다(실측으로 걸림).
   let mashNext = 0;
   while (core.phase !== PHASE.OVER && core.t < MAX_MS && guard++ < 400000) {
+    // v3: 실제 판처럼 «다시 일어서기»를 받는다(판마다 1번 · 놓친 문제부터 3연속)
+    if (core.phase === PHASE.DOWN) { core.beginRevive(); pending = null; }
     if (policy === 'mash') {
       if (core.t >= mashNext) { core.input(0); mashNext = core.t + 120; }
       core.advance(STEP);
@@ -156,10 +158,15 @@ if (GATE) {
     // ② 찍기로는 못 오른다
     if (by(0).median > 4) fails.push(`찍기 우회: p=0 중앙값 ${by(0).median} > 4`);
     // ③ 학습이 결과를 바꾼다
+    // 🔴 v3(한 번 틀리면 추락)부터는 «배수»로 잰다. 하트 3개 시절의 «30층 차이»는 판 길이가 길어서 나온 값이고,
+    //    추락형에선 모든 판이 짧아져 절대 차이가 줄어도 «더 알면 몇 배 더 간다»는 그대로다(실측 26/5 = 5.2배).
+    const ratio = by(0.9).median / Math.max(1, by(0.6).median);
     const gap = by(0.9).median - by(0.6).median;
-    if (gap < 30) fails.push(`학습→진행 격차 부족: 0.6↔0.9 = ${gap} < 30`);
+    if (ratio < 3 || gap < 15) fails.push(`학습→진행 격차 부족: 0.6↔0.9 = ${gap}층 · ${ratio.toFixed(1)}배 (≥15층 · ≥3배)`);
     // ④ 못해도 게임이 된다 / 잘해도 끝이 있다
-    if (by(0.5).median < 5) fails.push(`저성취 좌절: p=0.5 중앙값 ${by(0.5).median} < 5`);
+    // 🔴 반만 아는 아이도 «가끔은 멀리 간다»(p90)가 있어야 다시 한다 — 중앙값만 보면 추락형에선 늘 낮다.
+    if (by(0.5).median < 2) fails.push(`저성취 좌절: p=0.5 중앙값 ${by(0.5).median} < 2`);
+    if (by(0.5).p90 < 8) fails.push(`저성취 좌절: p=0.5 상위 10% ${by(0.5).p90} < 8 — 반만 알면 멀리 갈 일이 아예 없다`);
     if (by(1.0).median > 400) fails.push(`천장 없음: p=1.0 중앙값 ${by(1.0).median} > 400`);
 
     // ⑤ 연타 우회 — 한쪽만 계속 누르는 봇이 찍기보다 유리하면 버퍼가 구멍이다

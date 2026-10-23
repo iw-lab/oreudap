@@ -7,6 +7,11 @@
 //    캐릭터만 제자리 뛰기를 했다. 배경 46px 스크롤은 3500px 그라데이션에서 1.3%라 보이지도 않았다.
 //    지금은 ① 밟은 발판이 캐릭터를 따라 내려오고 ② 그 아래로 지나온 계단이 2~3개 쌓이며
 //    ③ 배경이 같은 리듬으로(더 느리게) 흘러 시차를 만든다.
+//
+// 🔴 v3 «이어지는 계단»(2026-10-23 사용자 «계단이 연결되면 좋겠다»):
+//    다음 갈래는 «지금 밟은 발판의 바로 위 왼쪽·(가운데)·오른쪽»에 붙어 나온다. 화면의 갈래 칸(DOM 버튼)은
+//    늘 가운데를 기준으로 대칭이므로, 밟은 발판을 «가로로도» 화면 가운데로 끌어오면(세계를 옆으로 민다)
+//    갈래가 저절로 발판 옆에 붙는다. 지나온 발판은 옆으로 한 칸씩 어긋난 채 쌓여 한 줄기 계단이 된다.
 
 import Phaser from 'phaser';
 import { computeLayout, columns } from '../ui/layout.js';
@@ -87,6 +92,14 @@ export class WorldScene extends Phaser.Scene {
     this.floorsClimbed = 0;
     this.pendingLand = null;
     this.pose = 'idle';
+    this.fever = false;
+    this.bestFloor = 0;     // 이 과목·모드의 최고 기록 층 — 그 높이에 깃발을 꽂는다
+    this.flag = null;
+    this.flagPlat = null;
+    this.flagRow = false;   // 깃발이 «아직 안 밟은 갈래 행» 위에 떠 있는가
+    this.fallen = false;
+    this.links = null;
+    this.linkColor = null;
     this.ready = false;
   }
 
@@ -131,12 +144,19 @@ export class WorldScene extends Phaser.Scene {
 
     // 월드 컨테이너 — 이 컨테이너의 y 를 내리는 것이 곧 «올라가는 것»이다.
     this.world = this.add.container(0, 0);
+    // 이어지는 계단 — 지나온 발판 사이의 디딤돌(발판보다 뒤)
+    this.links = this.add.graphics();
+    this.world.add(this.links);
     this.pool = Array.from({ length: POOL }, () => {
       const p = this.add.image(0, 0, platKey).setOrigin(0.5, 0.5).setVisible(false);
       this.world.add(p);
       return p;
     });
     this.free = this.pool.slice();
+
+    this.makeFlagTexture();
+    this.flag = this.add.image(0, 0, 'best-flag').setOrigin(0.12, 1).setVisible(false);
+    this.world.add(this.flag);
 
     this.shadow = this.add.ellipse(0, 0, 60, 16, 0x000000, 0.28);
     this.char = this.makeChar(this.skin);
@@ -164,6 +184,22 @@ export class WorldScene extends Phaser.Scene {
     });
 
     this.ready = true;
+  }
+
+  /** 최고 기록 깃발 — 장대 + 깃발(기하학 자산, 글자 없음) */
+  makeFlagTexture() {
+    if (this.textures.exists('best-flag')) return;
+    const g = this.make.graphics({ x: 0, y: 0, add: false });
+    g.fillStyle(0x3a2a1a, 1);
+    g.fillRoundedRect(4, 4, 6, 92, 3);
+    g.fillStyle(0xffcf4a, 1);
+    g.fillTriangle(10, 8, 62, 22, 10, 38);
+    g.fillStyle(0xff8a3d, 1);
+    g.fillTriangle(10, 14, 44, 22, 10, 30);
+    g.fillStyle(0xffffff, 0.9);
+    g.fillCircle(7, 6, 5);
+    g.generateTexture('best-flag', 64, 100);
+    g.destroy();
   }
 
   /** 파티클용 작은 텍스처는 결정론 생성이 낫다(기하학 자산) */
@@ -221,6 +257,8 @@ export class WorldScene extends Phaser.Scene {
       p.setAlpha(Math.max(0.25, 1 - DEPTH_FADE * depth));
     });
     this.positionRow();
+    this.placeFlag();
+    this.drawLinks();
 
     this.char.setDisplaySize(this.layout.charSize, this.layout.charSize);
     this.shadow.setSize(this.layout.charSize * 0.62, this.layout.charSize * 0.18);
@@ -282,10 +320,11 @@ export class WorldScene extends Phaser.Scene {
   }
 
   /** 현재 문항의 갈래 수에 맞춰 «한 층 위» 발판 행을 세운다 */
-  showRow(branches) {
+  showRow(branches, floor = 0) {
     this.branches = branches;
     if (!this.layout) return;
     this.settleNow();
+    this.recover();
     this.row.forEach((p) => this.release(p));
     this.cols = columns(this.layout, branches);
     this.row = [];
@@ -298,6 +337,7 @@ export class WorldScene extends Phaser.Scene {
       p.__nx = c.cx / this.layout.w;
       p.setPosition(c.cx, -this.layout.floorH + platOffset(this.layout, ph));
       p.setAlpha(0);
+      if (this.fever) p.setTint(0xffc46b);     // 불꽃 계단 — 다음 갈래가 달아오른다
       const sx = p.scaleX; const sy = p.scaleY;
       p.setScale(sx * 0.86, sy * 0.86);
       this.track(this.tweens.add({
@@ -306,6 +346,88 @@ export class WorldScene extends Phaser.Scene {
       }));
       this.row.push(p);
     }
+    // 최고 기록 높이의 갈래 행 — 깃발이 «저 높이»에 먼저 떠 있다(밟으면 그 발판에 꽂힌다)
+    this.flagRow = this.bestFloor > 0 && floor === this.bestFloor && !this.flagPlat;
+    this.placeFlag();
+  }
+
+  /** 깃발 자리 — 갈래 행 위(아직 안 밟음) 또는 밟은 발판 위 */
+  placeFlag() {
+    if (!this.flag || !this.layout) return;
+    const plat = this.flagPlat && this.stack.includes(this.flagPlat) ? this.flagPlat : null;
+    if (this.flagPlat && !plat) this.flagPlat = null;      // 화면 아래로 흘러가 회수됐다
+    const h = this.layout.floorH * 0.62;
+    if (plat) {
+      this.flag.setVisible(true).setDisplaySize(h * 0.64, h).setAlpha(plat.alpha);
+      this.flag.setPosition(plat.x + plat.displayWidth * 0.3, plat.y - plat.displayHeight * (0.5 - PLAT_SURFACE));
+    } else if (this.flagRow) {
+      this.flag.setVisible(true).setDisplaySize(h * 0.64, h).setAlpha(1);
+      this.flag.setPosition(this.layout.w / 2, -this.layout.floorH * 1.02);
+    } else {
+      this.flag.setVisible(false);
+    }
+  }
+
+  /** 발판 그림의 몸통 색(디딤돌 색) — 테마 발판에서 직접 뽑는다 */
+  stepColor() {
+    const p = this.pool[0];
+    const key = p && p.texture ? p.texture.key : null;
+    if (this.linkColor && this.linkColor.key === key) return this.linkColor;
+    let top = 0xa8743f, side = 0x6e4524;
+    try {
+      const img = this.textures.get(key).getSourceImage();
+      const px = (fx, fy) => this.textures.getPixel(Math.floor(img.width * fx), Math.floor(img.height * fy), key);
+      const a = px(0.5, 0.62), b = px(0.5, 0.8);
+      if (a && a.alpha > 100) top = Phaser.Display.Color.GetColor(a.red, a.green, a.blue);
+      if (b && b.alpha > 100) side = Phaser.Display.Color.GetColor(b.red * 0.7, b.green * 0.7, b.blue * 0.7);
+    } catch { /* 기본색 */ }
+    this.linkColor = { key, top, side };
+    return this.linkColor;
+  }
+
+  /**
+   * 🔴 «이어진 계단»의 정체. 층 높이(floorH)는 DOM 갈래 칸과 공유하는 값이라 줄일 수 없다 —
+   *    그래서 지나온 발판과 발판 사이에 작은 디딤돌 세 개를 놓아 한 줄기 계단으로 잇는다.
+   *    발판을 옮길 때마다(착지·미끄럼·화면 크기) 절대 좌표로 다시 그린다.
+   */
+  drawLinks() {
+    const g = this.links;
+    if (!g || !this.layout) return;
+    g.clear();
+    const { top, side } = this.stepColor();
+    const N = 3;
+    const sy = (p) => p.y - p.displayHeight * (0.5 - PLAT_SURFACE);
+    for (let i = 0; i + 1 < this.stack.length; i++) {
+      const up = this.stack[i], lo = this.stack[i + 1];
+      if (!up.visible || !lo.visible) continue;
+      const ya = sy(lo), yb = sy(up);
+      const alpha = Math.min(up.alpha, lo.alpha);
+      const bw = Math.min(up.displayWidth, lo.displayWidth) * 0.34;
+      const bh = Math.max(6, this.layout.floorH * 0.11);
+      for (let k = 1; k <= N; k++) {
+        const t = k / (N + 1);
+        const x = lo.x + (up.x - lo.x) * t;
+        const y = ya + (yb - ya) * t;
+        g.fillStyle(side, alpha);
+        g.fillRoundedRect(x - bw / 2, y, bw, bh, Math.min(6, bh / 2));
+        g.fillStyle(top, alpha);
+        g.fillRoundedRect(x - bw / 2, y - bh * 0.35, bw, bh * 0.6, Math.min(6, bh / 3));
+      }
+    }
+  }
+
+  /** 앱이 판마다 알려 준다 — 이 과목·모드의 최고 기록 */
+  setBest(floor) {
+    this.bestFloor = floor || 0;
+    this.flagPlat = null;
+    this.flagRow = false;
+    this.placeFlag();
+  }
+
+  /** 불꽃 계단 켜기/끄기 — 다음 갈래부터 달아오른다 */
+  setFever(on) {
+    this.fever = !!on;
+    if (!on) for (const p of this.row) p.clearTint();
   }
 
   positionRow() {
@@ -337,6 +459,8 @@ export class WorldScene extends Phaser.Scene {
     //    그래도 겹치면 settleNow() 가 먼저 착지를 확정한다.
     const dur = this.reduced ? 1 : 150;
     const topY = -this.layout.floorH;
+    // 밟을 발판을 화면 가운데로 — 세계가 옆으로도 흐른다(이어지는 계단)
+    const dx = this.layout.w / 2 - target.x;
     this.charCol = index;
     this.setPose('jump');          // 🔴 트윈을 만들기 전에 — scale 을 다시 잡기 때문
 
@@ -358,6 +482,7 @@ export class WorldScene extends Phaser.Scene {
     this.targetScrollY += this.layout.floorH * BG_PARALLAX;
     this.track(this.tweens.add({
       targets: this.world,
+      x: dx,
       y: this.layout.charY + this.layout.floorH,
       delay: this.reduced ? 0 : dur * 0.42,
       duration: this.reduced ? 1 : dur * 0.95,
@@ -385,7 +510,16 @@ export class WorldScene extends Phaser.Scene {
 
     if (landed) {
       landed.__floor = floor;
+      landed.clearTint();
       this.stack.unshift(landed);
+      if (this.flagRow && floor === this.bestFloor) { this.flagPlat = landed; this.flagRow = false; }
+      // 가로 재기준화 — 밟은 발판이 화면 가운데(w/2)에 오도록 지나온 계단 전체를 옮긴다(절대값, 끊겨도 안 어긋남)
+      const dx = this.layout.w / 2 - landed.x;
+      for (const p of this.stack) p.x += dx;
+      if (this.fever) {
+        this.emitterSpark.setPosition(this.layout.w / 2, this.layout.charY);
+        this.emitterSpark.explode(8);
+      }
       if (floor != null && floor % MILESTONE_EVERY === 0) {
         // 금 발판 — 아래로 흘러가며 «몇 층까지 왔는지»를 세계 자체로 보여 준다.
         landed.setTint(0xffcf6a);
@@ -398,6 +532,8 @@ export class WorldScene extends Phaser.Scene {
     // 🔴 상대 증분(y += fh)이 아니라 절대값으로 놓는다 — 연출이 중간에 끊겨도 계단이 어긋나지 않는다.
     const fh = this.layout.floorH;
     this.world.y = this.layout.charY;
+    this.world.x = 0;
+    this.flagRow = false;
 
     const maxDepth = Math.ceil((this.layout.h - this.layout.charY) / fh) + 2;
     while (this.stack.length > maxDepth) this.release(this.stack.pop());
@@ -415,6 +551,69 @@ export class WorldScene extends Phaser.Scene {
     this.shadow.setPosition(footX, 2).setAlpha(0.28);
     this.floorsClimbed = floor || this.floorsClimbed + 1;
     this.pendingLand = null;
+    this.placeFlag();
+    this.drawLinks();
+  }
+
+  /** 추락 — 발이 미끄러져 계단 아래로 굴러떨어진다(다시 일어서기를 고르는 동안 보이는 장면) */
+  fall() {
+    if (!this.layout || !this.char || this.fallen) return;
+    this.fallen = true;
+    this.setPose('sad');
+    const drop = this.layout.h - this.layout.charY + this.layout.charSize * 1.5;
+    this.track(this.tweens.add({
+      targets: this.char,
+      y: { value: drop, duration: this.reduced ? 1 : 760, ease: 'Quad.easeIn' },
+      x: { value: this.char.x + (this.charCol === 0 ? -1 : 1) * this.layout.floorH * 0.4, duration: this.reduced ? 1 : 760 },
+      angle: { value: this.reduced ? 0 : 400, duration: this.reduced ? 1 : 760 },
+    }));
+    this.track(this.tweens.add({ targets: this.shadow, alpha: 0, duration: this.reduced ? 1 : 200 }));
+    if (!this.reduced) this.cameras.main.shake(260, 0.009);
+  }
+
+  /** 다시 일어서기 — 떨어진 자리(밟고 있던 발판)로 돌아온다 */
+  recover() {
+    if (!this.fallen || !this.char || !this.layout) return;
+    this.fallen = false;
+    for (const t of this.tracked.slice()) {
+      if ((t.targets || []).includes(this.char)) { try { t.remove(); } catch { /* 이미 정리됨 */ } }
+    }
+    const x = this.stack[0] ? this.stack[0].x : this.layout.w / 2;
+    this.char.setAngle(0).setAlpha(1).setPosition(x, 0);
+    this.char.setScale(this.char.scaleX, Math.abs(this.char.scaleY));
+    this.shadow.setPosition(x, 2).setAlpha(0.28);
+    this.setPose('cheer');
+    this.emitterSpark.setPosition(x, this.layout.charY - this.layout.charSize * 0.4);
+    this.emitterSpark.explode(26);
+  }
+
+  /** 60초 질주 오답 — 한 칸 미끄러져 내려간다(세계가 한 층 위로 밀려 올라간다) */
+  slideDown() {
+    if (!this.layout || this.finished || this.stack.length < 2) return;
+    this.settleNow();
+    const top = this.stack.shift();
+    if (top === this.flagPlat) this.flagPlat = null;
+    this.release(top);
+    const fh = this.layout.floorH;
+    const dx = this.layout.w / 2 - this.stack[0].x;
+    for (const p of this.stack) p.x += dx;
+    this.stack.forEach((p, depth) => {
+      const ph = this.sizePlatform(p, p.__branches || 2, depth);
+      p.setPosition(p.x, depth * fh + platOffset(this.layout, ph));
+      p.setAlpha(Math.max(0.28, 1 - DEPTH_FADE * depth));
+      p.__nx = p.x / this.layout.w;
+    });
+    // 보이는 자리는 그대로 두고(세계를 한 층 아래·옆으로 밀어 둔 채) 제자리로 흘려보낸다
+    this.world.setPosition(-dx, this.layout.charY + fh);
+    this.char.setPosition(this.layout.w / 2 + dx, -fh);
+    this.shadow.setPosition(this.layout.w / 2 + dx, -fh + 2);
+    const dur = this.reduced ? 1 : 260;
+    this.track(this.tweens.add({ targets: this.world, x: 0, y: this.layout.charY, duration: dur, ease: 'Sine.easeOut' }));
+    this.track(this.tweens.add({ targets: [this.char, this.shadow], x: this.layout.w / 2, duration: dur, ease: 'Sine.easeOut' }));
+    this.track(this.tweens.add({ targets: this.char, y: 0, duration: dur, ease: 'Bounce.easeOut' }));
+    this.track(this.tweens.add({ targets: this.shadow, y: 2, duration: dur }));
+    this.placeFlag();
+    this.drawLinks();
   }
 
   /** 오답·시간초과 — 헛디딤 + 정답 발판 강조 */
@@ -547,6 +746,7 @@ export class WorldScene extends Phaser.Scene {
     if (this.textures.exists(key)) for (const bg of [this.bgA, this.bgB]) if (bg) bg.setTexture(key);
     const platKey = `platform-${(this.manifest.themePlatform || {})[theme] || 'stone'}`;
     if (this.textures.exists(platKey)) for (const p of this.pool) p.setTexture(platKey);
+    this.linkColor = null;
     this.applyLayout();
   }
 
@@ -561,6 +761,12 @@ export class WorldScene extends Phaser.Scene {
     this.branches = 2;
     this.floorsClimbed = 0;
     this.pendingLand = null;
+    this.fever = false;
+    this.fallen = false;
+    this.flagPlat = null;
+    this.flagRow = false;
+    if (this.flag) this.flag.setVisible(false);
+    if (this.links) this.links.clear();
     for (const p of this.pool) this.release(p);
     this.free = this.pool.slice();
     this.row = [];
@@ -593,7 +799,7 @@ export class WorldScene extends Phaser.Scene {
     if (this.emitterSpark) this.emitterSpark.stop();
     if (this.emitterCrack) this.emitterCrack.stop();
     // 트윈을 중간에 끊으면 컨테이너가 «올라가다 만» 자리에 남는다 — 제자리로 되돌린다.
-    if (this.world && this.layout) this.world.y = this.layout.charY;
+    if (this.world && this.layout) { this.world.y = this.layout.charY; this.world.x = 0; }
   }
 
   /** QA 훅: 파괴된 대상을 도는 트윈 수(0이어야 한다) */
