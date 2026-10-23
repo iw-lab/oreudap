@@ -19,7 +19,9 @@ page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
 page.on('request', (r) => {
   const u = r.url();
   // 🔴 v2: 바깥으로 나가는 곳 0 — 학교 허브는 같은 오리진 중계(/api/hub)다. 옛 개인 등수 API 도 이제 «외부»로 센다(D49).
-  const allowed = u.startsWith(origin) || u.startsWith(`blob:${origin}`) || u.startsWith('data:');
+  // 학교 허브 워커 직결(59a3108 · src/app.js configureHub direct) — 우리 서버다. 학교별 합계·기기 해시만 오간다.
+  const OWN_HUB = 'https://oreudap-hub.markmoim-sync.workers.dev/';
+  const allowed = u.startsWith(origin) || u.startsWith(`blob:${origin}`) || u.startsWith('data:') || u.startsWith(OWN_HUB);
   if (!allowed || /oreudap-rank|\/api\/rank/.test(u)) external.push(`${r.method()} ${u}`);
 });
 
@@ -83,6 +85,37 @@ if (final.qa.audio.decoded < final.qa.audio.expected) fails.push(`오디오 ${fi
 if (final.qa.loadErrors.length) fails.push(`에셋 로드 실패: ${final.qa.loadErrors.join(', ')}`);
 if (external.length) fails.push(`외부 도메인 요청 ${external.length}건: ${external.slice(0, 3).join(' | ')}`);
 if (errors.length) fails.push(`콘솔 오류 ${errors.length}건: ${errors.slice(0, 3).join(' | ')}`);
+
+// v3 — 한 번 틀리면 추락 → «다시 일어서기» 창 → 3연속 정답 → 같은 층에서 재출발 → 두 번째 추락은 결과 화면
+{
+  const clickChoice = async (wrong) => {
+    await page.waitForFunction(() => { const c = window.__SMOKE__.app.core; return c.phase === 'question' && !c.answered; }, null, { timeout: 10000 });
+    const pt = await page.evaluate((w) => {
+      const q = window.__SMOKE__.app.core.question;
+      const idx = w ? (q.answerIndex + 1) % q.choices.length : q.answerIndex;
+      const r = document.querySelectorAll('.choice')[idx].getBoundingClientRect();
+      return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    }, wrong);
+    await page.mouse.click(pt.x, pt.y);
+  };
+  try {
+    const fl = await page.evaluate(() => window.__SMOKE__.app.core.floor);
+    await clickChoice(true);
+    await page.waitForSelector('#overlay-revive:not([hidden])', { timeout: 8000 });
+    await page.click('#btn-revive');
+    for (let i = 0; i < 3; i++) { await clickChoice(false); await page.waitForTimeout(150); }
+    await page.waitForFunction(() => { const c = window.__SMOKE__.app.core; return c.phase === 'question' && !c.reviving; }, null, { timeout: 8000 });
+    const back = await page.evaluate(() => window.__SMOKE__.app.core.floor);
+    if (back !== fl) fails.push(`다시 일어선 층 ${back} ≠ 떨어진 층 ${fl}`);
+    await clickChoice(true);
+    await page.waitForFunction(() => document.querySelector('#screen-result').classList.contains('active'), null, { timeout: 8000 });
+    notes.push(`추락 → 다시 일어서기 창 → 3연속 → ${back}층 재출발 → 두 번째 추락은 결과 화면`);
+    await page.click('#btn-again');
+    await page.waitForFunction(() => window.__SMOKE__.app.core && window.__SMOKE__.app.core.phase === 'question', null, { timeout: 15000 });
+  } catch (e) {
+    fails.push(`추락·다시 일어서기 흐름이 끊겼다: ${String(e.message || e).split('\n')[0]}`);
+  }
+}
 
 // 학교 순위 카드가 실서버 허브에서 실제로 채워졌는가(«불러오지 못했어요»면 중계·CORS·비밀이 깨진 것)
 const rankText = await page.evaluate(() => { window.__SMOKE__.app.quitRun(); return (document.querySelector('[data-gb="school-rank"]') || {}).textContent || ''; }).catch(() => '');
