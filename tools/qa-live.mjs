@@ -20,7 +20,7 @@ page.on('request', (r) => {
   const u = r.url();
   // 🔴 v2: 바깥으로 나가는 곳 0 — 학교 허브는 같은 오리진 중계(/api/hub)다. 옛 개인 등수 API 도 이제 «외부»로 센다(D49).
   // 학교 허브 워커 직결(59a3108 · src/app.js configureHub direct) — 우리 서버다. 학교별 합계·기기 해시만 오간다.
-  const OWN_HUB = 'https://oreudap-hub.markmoim-sync.workers.dev/';
+  const OWN_HUB = 'https://oreudap-hub.simssijjang-korea.workers.dev/';
   const allowed = u.startsWith(origin) || u.startsWith(`blob:${origin}`) || u.startsWith('data:') || u.startsWith(OWN_HUB);
   if (!allowed || /oreudap-rank|\/api\/rank/.test(u)) external.push(`${r.method()} ${u}`);
 });
