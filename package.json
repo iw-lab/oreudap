@@ -9,6 +9,7 @@
     "korean:import": "node tools/import-korean.mjs --src",
     "dev": "vite --port 5199 --strictPort",
     "build": "vite build",
+    "deploy:web": "npm run build && cd dist && env -u CLOUDFLARE_API_TOKEN HOME=$HOME/.cf-homes/korea CLOUDFLARE_ACCOUNT_ID=b3d436cfca3fb9f2d1d7af777e23e8f1 npx wrangler pages deploy . --project-name muhan --branch main --commit-dirty=true",
     "preview": "vite preview --port 5198 --strictPort",
     "test": "vitest run",
     "gate:balance": "node tools/probe-grid.mjs --gate",

@@ -1,3 +1,0 @@
-{
-  "rewrites": [{ "source": "/api/hub/:p", "destination": "/api/hub?p=:p" }]
-}

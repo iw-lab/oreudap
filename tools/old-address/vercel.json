@@ -1,0 +1,8 @@
+{
+  "framework": null,
+  "buildCommand": "echo skip",
+  "installCommand": "echo skip",
+  "outputDirectory": ".",
+  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }],
+  "headers": [{ "source": "/(.*)", "headers": [{ "key": "Cache-Control", "value": "no-cache, must-revalidate" }, { "key": "Referrer-Policy", "value": "no-referrer" }] }]
+}

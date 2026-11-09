@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>오르답 — 주소가 옮겨졌어요</title>
+<meta name="robots" content="noindex">
+<style>body{margin:0;min-height:100dvh;display:grid;place-items:center;background:#101a2c;color:#eee;font:16px/1.6 system-ui,sans-serif;text-align:center;padding:1rem}a{display:inline-block;min-height:44px;padding:.6rem 1.2rem;margin-top:.8rem;border-radius:10px;background:#3b82f6;color:#fff;font-weight:700;text-decoration:none}</style>
+<script>
+/* 옛 주소 → 새 주소. 저장 기록은 # 뒤에 실어 새 주소의 move-in.js 가 받는다(# 뒤는 서버로 안 간다). */
+(function () {
+  try {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function (rs) { rs.forEach(function (r) { r.unregister(); }); });
+    }
+  } catch (e) { /* 무시 */ }
+  var NEW = 'https://muhan-61w.pages.dev/';
+  var OK = /^(oreudap:|oreudap\.hub\.v1)/, out = {}, n = 0;
+  try {
+    for (var i = 0; i < localStorage.length; i++) {
+      var k = localStorage.key(i), v = localStorage.getItem(k);
+      if (OK.test(k) && v !== null && v.length <= 100000) { out[k] = v; n++; }
+    }
+  } catch (e) { /* 못 읽으면 기록 없이 옮긴다 */ }
+  var tail = n ? '#gbmove=' + encodeURIComponent(JSON.stringify(out)) : '';
+  location.replace(NEW + location.search + tail);
+})();
+</script></head>
+<body><div><p>오르답 주소가 옮겨졌어요.</p><a href="https://muhan-61w.pages.dev/">새 주소로 가기</a></div></body></html>
