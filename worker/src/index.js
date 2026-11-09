@@ -4,7 +4,7 @@ import { submitScore, topRows } from './board.js';
 // 🔴 게임 주소가 늘면 **여기도 늘어야 한다**. 2026-09-06 에 oreudap 도메인을 추가하고 이 줄을
 //    안 고쳐서, 새 주소에서 등수판이 통째로 죽어 있었다(화면엔 판이 비어 보일 뿐 에러가 안 뜬다).
 //    도메인 추가는 «Vercel 한 곳»이 아니라 «Vercel + 이 목록» 두 곳이다.
-const ALLOW = ['https://oreudap.vercel.app', 'https://muhan-pi.vercel.app'];
+const ALLOW = ['https://oreudap.vercel.app', 'https://muhan-pi.vercel.app', 'https://muhan-61w.pages.dev'];
 // 로컬 개발·게이트가 쓰는 오리진. 포트가 도구마다 달라 목록으로는 못 맞춘다(스모크 8181·플레이 8189…).
 // 🔴 CORS 는 여기서 «보호 장치»가 아니다 — 이 API 는 인증이 없어 curl 로는 어차피 누구나 부른다.
 //    실제 방어선은 acceptName(실명 거부)·MAX_FLOOR·이름당 한 줄이다.
