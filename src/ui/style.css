@@ -581,7 +581,9 @@ html:root {
 @media (min-width: 1440px) { .home .home-wrap.gb-home { max-width: 1320px; } }
 
 /* 키 낮은 가로 화면(폰 가로 844×390) — #schoolRank 가 .home-main 안(.gb-home 바로 밑이 아님)이라 키트 1.34 .gb-side 묶음이 안 닿는다.
-   .home-main 을 2칸으로: 순위+선행쌤 배너는 왼쪽, 과목·시작하기·모드는 오른쪽 — 안 그러면 순위(218px)+배너에 밀려 «시작하기»가 화면 밖(B20). */
+   .home-main 을 2칸으로: 순위+선행쌤 배너는 왼쪽, 과목·시작하기·모드는 오른쪽 — 안 그러면 순위(218px)+배너에 밀려 «시작하기»가 화면 밖(B20).
+   🔴 순위 카드는 학교마다 줄 수가 달라 키가 변한다(로컬은 «불러오지 못했어요» 로 짧아 보여 속았다 — 배포본 실측에서 진짜 순위 목록이 다시 밀었다).
+   키트 .gb-side 와 같은 수법: 왼쪽 칸만 빈 줄 40개에 걸쳐(row-gap:0 — 틈이 쌓이면 수백px 늘어난다) 키 변화를 흡수하고, 오른쪽 칸은 줄마다 따로 둬 순위 키와 무관하게 자리를 지킨다. */
 @media (orientation: landscape) and (max-height: 500px) {
   .home-side { display: none; }
   .home-grid { grid-template-columns: minmax(0, 1fr); }
@@ -589,14 +591,14 @@ html:root {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
     column-gap: 14px;
-    row-gap: 8px;
+    row-gap: 0;
     align-items: start;
   }
-  #schoolRank { grid-column: 1; grid-row: 1; min-height: 0; }
-  .home-main > [data-gb="site-link"] { grid-column: 1; grid-row: 2; }
-  .home-main .pick { grid-column: 2; grid-row: 1; }
-  .home .gb-play { grid-column: 2; grid-row: 2; }
-  .home-main #modeGrid { grid-column: 2; grid-row: 3; }
+  #schoolRank { grid-column: 1; grid-row: 1 / span 40; min-height: 0; }
+  .home-main > [data-gb="site-link"] { grid-column: 1; grid-row: 41 / span 2; margin-top: 8px; }
+  .home-main .pick { grid-column: 2; grid-row: 1; margin-bottom: 8px; }
+  .home .gb-play { grid-column: 2; grid-row: 2; margin-bottom: 8px; }
+  .home-main #modeGrid { grid-column: 2; grid-row: 3; margin-bottom: 8px; }
   .home-main .gb-sub { grid-column: 2; grid-row: 4; }
 }
 
